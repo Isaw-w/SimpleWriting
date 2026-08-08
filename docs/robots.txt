@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://isaw-w.github.io/SimpleWriting/sitemap.xml

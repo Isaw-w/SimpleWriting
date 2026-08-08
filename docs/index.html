@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>SimpleWriting — A minimalist macOS writing app that never writes for you</title>
-<meta name="description" content="SimpleWriting is a free, open-source, distraction-free macOS writing app with no AI ghostwriter. It never generates or rewrites your text — it only checks your grammar, names the rule, and lets you make the fix yourself. Write in your own words.">
-<meta name="keywords" content="minimalist writing app, distraction-free editor for Mac, writing app without AI, no-AI writing tool, grammar checker macOS, write in your own words, English writing practice, offline writing app, open source macOS editor, SimpleWriting">
+<title>SimpleWriting — a minimalist macOS editor that helps you write without AI</title>
+<meta name="description" content="SimpleWriting is a free, open-source, distraction-free macOS editor that helps you write without AI. No autocomplete, no rewrite — only a grammar check that tells you what is wrong and lets you fix it yourself. Build your own agency and write your best possible piece.">
+<meta name="keywords" content="write without AI, minimalist writing app, distraction-free macOS editor, no autocomplete editor, no rewrite, grammar checker that doesn't fix for you, learn grammar, English writing practice, local private writing app, notes app for writing, open source macOS editor, SimpleWriting">
 <meta name="author" content="Jack Crusher">
 <meta name="robots" content="index, follow">
 <meta name="theme-color" content="#2f6fb0">
@@ -14,8 +14,8 @@
 <!-- Open Graph -->
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="SimpleWriting">
-<meta property="og:title" content="SimpleWriting — a macOS writing app that never writes for you">
-<meta property="og:description" content="No AI ghostwriter. Just your words — and a grammar check that names the rule and lets you make the fix. Free and open source for macOS.">
+<meta property="og:title" content="SimpleWriting — a minimalist macOS editor that helps you write without AI">
+<meta property="og:description" content="No autocomplete, no rewrite — only a grammar check you fix yourself. A distraction-free, local, private macOS editor. Free and open source.">
 <meta property="og:url" content="https://isaw-w.github.io/SimpleWriting/">
 <meta property="og:image" content="https://isaw-w.github.io/SimpleWriting/og-image.png">
 <meta property="og:image:width" content="1200">
@@ -23,8 +23,8 @@
 
 <!-- Twitter -->
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="SimpleWriting — a macOS writing app that never writes for you">
-<meta name="twitter:description" content="No AI ghostwriter. Just your words — and a grammar check that names the rule and lets you make the fix.">
+<meta name="twitter:title" content="SimpleWriting — write without AI on macOS">
+<meta name="twitter:description" content="No autocomplete, no rewrite — only a grammar check you fix yourself. Distraction-free, local, private.">
 <meta name="twitter:image" content="https://isaw-w.github.io/SimpleWriting/og-image.png">
 
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='24' fill='%232f6fb0'/%3E%3Cpath d='M78 26 C55 30 40 48 34 66 L46 54 C58 42 70 34 78 26 Z' fill='%23eef4fb'/%3E%3Cpath d='M30 70 L44 56' stroke='%23eef4fb' stroke-width='4' stroke-linecap='round'/%3E%3C/svg%3E">
@@ -36,7 +36,7 @@
   "name": "SimpleWriting",
   "operatingSystem": "macOS 13.0 or later",
   "applicationCategory": "Text editor / Writing application",
-  "description": "A minimalist, distraction-free macOS writing app with no AI text generation. It only checks grammar — pointing at the exact mistake and naming the rule — so you make the fix and keep your agency.",
+  "description": "A minimalist, distraction-free macOS editor that helps you write without AI. No autocomplete and no rewrite — only a grammar check that tells you what is wrong and lets you fix it yourself. Local and private, like a notes app.",
   "url": "https://isaw-w.github.io/SimpleWriting/",
   "downloadUrl": "https://github.com/Isaw-w/SimpleWriting/releases/latest",
   "softwareVersion": "1.0",
@@ -47,9 +47,13 @@
 </script>
 
 <style>
-  :root{ --bg:#fdfdfc; --ink:#1a1a1a; --muted:#6b6b6b; --link:#2f6fb0; --rule:#e7e7e4; }
+  :root{
+    --bg:#fdfdfc; --ink:#1a1a1a; --muted:#6b6b6b;
+    --blue:#2f6fb0; --green:#1f8a63; --rule:#e7e7e4;
+  }
   @media (prefers-color-scheme: dark){
-    :root{ --bg:#111214; --ink:#e6e6e3; --muted:#8f8f8c; --link:#7cb2e6; --rule:#26272a; }
+    :root{ --bg:#111214; --ink:#e6e6e3; --muted:#8f8f8c;
+           --blue:#7cb2e6; --green:#5cc39a; --rule:#26272a; }
   }
   *{box-sizing:border-box}
   body{
@@ -58,27 +62,27 @@
     font:19px/1.72 Georgia,"Iowan Old Style","Times New Roman",serif;
     -webkit-font-smoothing:antialiased;
   }
-  a{color:var(--link); text-decoration:underline; text-underline-offset:2px; text-decoration-thickness:1px}
-  .name{font-size:.92rem; letter-spacing:.02em; color:var(--muted); margin:0 0 2.4em}
-  h1{font-size:1.72rem; font-weight:600; line-height:1.28; letter-spacing:-.01em; margin:0 0 .5em}
+  a{color:var(--blue); text-decoration:underline; text-underline-offset:2px; text-decoration-thickness:1px}
+  .name{display:inline-block; font-size:.92rem; letter-spacing:.02em; color:var(--muted); margin:0 0 2.4em;
+        border-bottom:2px solid; border-image:linear-gradient(90deg,var(--blue),var(--green)) 1; padding-bottom:2px}
+  h1{font-size:1.72rem; font-weight:600; line-height:1.28; letter-spacing:-.01em; margin:0 0 .35em}
+  .tag{font-size:1.12rem; color:var(--green); margin:0 0 1em}
   .lede{margin:0 0 1.3em}
   .do{font-size:.9rem; color:var(--muted); margin:0}
-  .do a{color:var(--ink)}
   h2{font-size:.8rem; font-weight:700; text-transform:uppercase; letter-spacing:.09em;
-     color:var(--muted); margin:3.2em 0 .9em}
+     color:var(--green); margin:3.2em 0 .9em}
   p{margin:0 0 1.1em}
   .quote{font-size:1.24rem; line-height:1.5; margin:0 0 1em}
   ul{list-style:none; padding:0; margin:0}
-  li{margin:0 0 1em; padding-left:1.1em; text-indent:-1.1em}
-  li::before{content:"—"; color:var(--muted); margin-right:.5em}
+  li{margin:0 0 1.15em; padding-left:1.2em; text-indent:-1.2em}
+  li::before{content:"—"; color:var(--blue); margin-right:.5em; font-weight:700}
   li b{font-weight:600}
-  .rule-eg{color:var(--muted); font-size:.95rem}
   ol{padding-left:1.2em; margin:0 0 1.2em}
   ol li{padding:0; text-indent:0; margin:0 0 .6em}
   ol li::before{content:none}
   code{font:14px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace}
   pre{font:14px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;
-      background:transparent; border-left:2px solid var(--rule);
+      background:transparent; border-left:2px solid var(--green);
       padding:.2em 0 .2em 1em; margin:0 0 1.2em; overflow-x:auto; color:var(--ink)}
   kbd{font:13px ui-monospace,monospace; border:1px solid var(--rule); border-radius:4px; padding:0 5px}
   hr{border:0; border-top:1px solid var(--rule); margin:3.4em 0 0}
@@ -90,35 +94,29 @@
 
 <p class="name">SimpleWriting</p>
 
-<h1>A writing app that never writes for you.</h1>
-<p class="lede">A minimalist, distraction-free macOS editor with no AI ghostwriter. It won't autocomplete your sentences or rewrite your paragraphs. The one thing it does for you is check your grammar — and even then it only points at the mistake and names the rule. You make the fix.</p>
+<h1>A minimalist macOS editor that helps you write — without AI.</h1>
+<p class="tag">Write it yourself.</p>
+<p class="lede">A distraction-free macOS editor with no AI. There is no autocomplete and no rewrite — there is only a grammar fix. Use it to build your own agency and write your best possible piece.</p>
 <p class="do"><a href="https://github.com/Isaw-w/SimpleWriting/releases/latest">Download for macOS</a> &nbsp;·&nbsp; <a href="https://github.com/Isaw-w/SimpleWriting">Source on GitHub</a> &nbsp;·&nbsp; free, MIT, macOS 13+</p>
 
 <h2>Philosophy</h2>
 <p class="quote">You do the writing. You keep the agency. You produce your best possible piece.</p>
-<p>Most modern tools now finish your thoughts for you. That is convenient — and it is also how you stop being a writer. SimpleWriting takes the opposite stance. The words on the page are yours, start to finish. It is for people learning English, practising their craft, or who simply believe writing is worth doing yourself.</p>
+<p>Most modern tools now finish your thoughts for you. That is convenient — and it is also how you stop being a writer. SimpleWriting takes the opposite stance. The words on the page are yours, start to finish.</p>
 
-<h2>What it does, and doesn't</h2>
+<h2>Features</h2>
 <ul>
-  <li><b>No text generation.</b> No autocomplete, no “rewrite this,” no suggestions to accept. Nothing writes for you.</li>
-  <li><b>Grammar that teaches.</b> It highlights the exact wrong word and explains the rule — never the corrected sentence. You fix it, so you learn it.</li>
-  <li><b>It trusts your voice.</b> Register, style, and intentional phrasing are left alone. It flags real errors, not your personality.</li>
-  <li><b>Local and private.</b> Drafts live on your disk. Your API key stays in your own settings. Nothing goes to the cloud but the grammar request you choose.</li>
-  <li><b>On-device style hints.</b> Long sentences, adverbs, passive voice and qualifiers are highlighted locally — no key required.</li>
-  <li><b>Minimal by design.</b> One window. Drafts on the left, your writing on the right. Nothing else asking for attention.</li>
+  <li><b>No AI writing.</b> No text generation, no autocomplete, no rewrite. Every word on the page is yours.</li>
+  <li><b>Grammar you fix yourself.</b> It tells you when your grammar is wrong — but it will not fix it for you. You make the correction by hand, and exercise your own cognitive power.</li>
+  <li><b>Local and private.</b> Everything stays on your Mac, like a notes app. No folders to manage, nothing to export, nothing in the cloud.</li>
 </ul>
-
-<h2>How the grammar check works</h2>
-<p>It is deliberately conservative and explain-only. It marks the smallest wrong span — a single word or short phrase, never a whole sentence — and gives you the rule, not the rewrite:</p>
-<p>“The subject is singular, so the verb should be singular.”<br><span class="rule-eg">— not “change <em>give</em> to <em>gives</em>.”</span></p>
-<p>Checks run at temperature 0, so the same text yields the same result — no flickering, no errors that come and go. Grammar works with any OpenAI-compatible API (DeepSeek, OpenAI, OpenRouter, Groq, or a local model). Leave it blank and SimpleWriting is still a fine distraction-free editor.</p>
 
 <h2>Install</h2>
 <ol>
   <li><a href="https://github.com/Isaw-w/SimpleWriting/releases/latest">Download <code>SimpleWriting.app</code></a>, then right-click it → Open → Open the first time.</li>
-  <li>Open Settings (<kbd>⌘</kbd> <kbd>,</kbd>) and add your OpenAI-compatible Base URL, Model, and API Key.</li>
+  <li>Open Settings (<kbd>⌘</kbd> <kbd>,</kbd>) and add your OpenAI-compatible Base URL, Model, and API Key to turn on the grammar check.</li>
 </ol>
-<p>Or build it yourself:</p>
+
+<h2>Build it yourself</h2>
 <pre>git clone https://github.com/Isaw-w/SimpleWriting.git
 cd SimpleWriting
 ./build.sh

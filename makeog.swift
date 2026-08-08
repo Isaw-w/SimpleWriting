@@ -10,12 +10,14 @@ image.lockFocus()
 NSColor(calibratedRed: 0.961, green: 0.973, blue: 0.988, alpha: 1).setFill()
 NSRect(x: 0, y: 0, width: W, height: H).fill()
 
-// Blue rule down the left.
-NSColor(calibratedRed: 0.184, green: 0.435, blue: 0.69, alpha: 1).setFill()
-NSRect(x: 0, y: 0, width: 14, height: H).fill()
+let blue = NSColor(calibratedRed: 0.184, green: 0.435, blue: 0.69, alpha: 1)
+let green = NSColor(calibratedRed: 0.122, green: 0.541, blue: 0.388, alpha: 1)
+
+// Blue→green rule down the left.
+NSGradient(starting: blue, ending: green)?.draw(in: NSRect(x: 0, y: 0, width: 14, height: H), angle: -90)
 
 let ink = NSColor(calibratedRed: 0.102, green: 0.141, blue: 0.196, alpha: 1)
-let terra = NSColor(calibratedRed: 0.184, green: 0.435, blue: 0.69, alpha: 1)
+let terra = blue
 
 func draw(_ s: String, _ font: NSFont, _ color: NSColor, x: CGFloat, y: CGFloat) {
     NSAttributedString(string: s, attributes: [.font: font, .foregroundColor: color])
@@ -25,11 +27,11 @@ func draw(_ s: String, _ font: NSFont, _ color: NSColor, x: CGFloat, y: CGFloat)
 let serif = { (size: CGFloat) in NSFont(name: "Georgia-Bold", size: size) ?? NSFont.boldSystemFont(ofSize: size) }
 let body  = { (size: CGFloat) in NSFont(name: "Georgia", size: size) ?? NSFont.systemFont(ofSize: size) }
 
-draw("SimpleWriting", serif(88), ink, x: 90, y: 380)
-draw("Write it yourself.", body(46), terra, x: 92, y: 300)
-draw("A minimalist macOS writing app that never writes for you.", body(34), ink, x: 92, y: 210)
-draw("No AI ghostwriter. Just your words — and a grammar check that", body(27), ink.withAlphaComponent(0.7), x: 92, y: 150)
-draw("names the rule and lets you make the fix.", body(27), ink.withAlphaComponent(0.7), x: 92, y: 112)
+draw("SimpleWriting", serif(88), ink, x: 90, y: 388)
+draw("Write it yourself.", body(46), green, x: 92, y: 306)
+draw("A minimalist macOS editor that helps you write — without AI.", body(32), ink, x: 92, y: 214)
+draw("No autocomplete, no rewrite — only a grammar check", body(27), ink.withAlphaComponent(0.7), x: 92, y: 152)
+draw("that you fix yourself.", body(27), ink.withAlphaComponent(0.7), x: 92, y: 114)
 
 // A simple quill mark, top-right.
 let cx: CGFloat = 1010, cy: CGFloat = 420, s: CGFloat = 150
