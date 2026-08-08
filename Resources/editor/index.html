@@ -1,0 +1,88 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="editor.bundle.css">
+  <style>
+    :root {
+      --bg: #fbfaf7; --fg: #26231e; --muted: #a19b90; --faint: rgba(120,110,95,0.14);
+      --link: #b6552a; --sel: rgba(182,85,42,0.16);
+    }
+    body.dark {
+      --bg: #17181a; --fg: #e7e4dd; --muted: #7c7a74; --faint: rgba(255,255,255,0.10);
+      --link: #e0956a; --sel: rgba(224,149,106,0.20);
+    }
+    html, body { margin: 0; height: 100%; background: var(--bg); }
+    * { -webkit-user-select: text; }
+    ::-webkit-scrollbar { width: 0; height: 0; }
+    ::selection { background: var(--sel); }
+
+    #editor {
+      max-width: 680px; margin: 0 auto; padding: 9vh 28px 40vh;
+      color: var(--fg);
+      font-family: ui-serif, "New York", "Iowan Old Style", Georgia, serif;
+      font-size: 21px; line-height: 1.75; letter-spacing: 0.005em;
+      font-feature-settings: "liga" 1, "kern" 1;
+      -webkit-font-smoothing: antialiased;
+      animation: rise 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+    }
+    @keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+    .ProseMirror { outline: none; min-height: 50vh; caret-color: var(--link); }
+    .ProseMirror p { margin: 0 0 0.9em; }
+    .ProseMirror h1, .ProseMirror h2, .ProseMirror h3 {
+      font-weight: 700; line-height: 1.25; letter-spacing: -0.01em; margin: 1.5em 0 0.4em;
+    }
+    .ProseMirror h1 { font-size: 1.72em; }
+    .ProseMirror h2 { font-size: 1.38em; }
+    .ProseMirror h3 { font-size: 1.16em; }
+    .ProseMirror > :first-child { margin-top: 0; }
+    .ProseMirror a { color: var(--link); text-decoration: none; border-bottom: 1px solid color-mix(in srgb, var(--link) 45%, transparent); cursor: text; transition: border-color .2s; }
+    .ProseMirror a:hover { border-bottom-color: var(--link); }
+    .ProseMirror blockquote {
+      border-left: 2px solid var(--muted); margin: 0 0 0.9em; padding-left: 1em;
+      color: var(--muted); font-style: italic;
+    }
+    .ProseMirror code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.85em; background: var(--faint); padding: 0.08em 0.34em; border-radius: 5px;
+    }
+    .ProseMirror pre {
+      background: var(--faint); padding: 0.8em 1em; border-radius: 10px; overflow-x: auto;
+      font-size: 0.85em; line-height: 1.5;
+    }
+    .ProseMirror hr { border: none; height: 1px; background: var(--faint); margin: 1.6em 0; }
+    .ProseMirror ul, .ProseMirror ol { padding-left: 1.3em; }
+    .ProseMirror li { margin: 0.2em 0; }
+
+    /* Quiet placeholder on an empty document. */
+    .ProseMirror .is-empty::before {
+      content: attr(data-placeholder); color: var(--muted);
+      font-style: italic; pointer-events: none; position: absolute;
+    }
+
+    /* Soft, rounded highlight fills (colour comes inline from Swift). */
+    .hl {
+      border-radius: 4px; padding: 0.04em 0.05em;
+      -webkit-box-decoration-break: clone; box-decoration-break: clone;
+      transition: background-color .18s ease;
+    }
+
+    .hl-tip {
+      position: absolute; z-index: 50; max-width: 320px;
+      background: var(--bg); color: var(--fg);
+      border: 1px solid var(--faint); border-radius: 12px;
+      box-shadow: 0 10px 34px rgba(0,0,0,0.18);
+      padding: 11px 14px; font-family: -apple-system, system-ui, sans-serif;
+      animation: rise 0.18s ease both;
+    }
+    .hl-tip-title { font-size: 12.5px; font-weight: 700; margin-bottom: 4px; letter-spacing: 0.01em; }
+    .hl-tip-hint { font-size: 14px; line-height: 1.45; }
+  </style>
+</head>
+<body>
+  <div id="editor"></div>
+  <script src="editor.bundle.js"></script>
+</body>
+</html>

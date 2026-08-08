@@ -1,0 +1,9 @@
+.DS_Store
+.build/
+*.xcodeproj
+SimpleWriting.app/
+*.swiftpm
+.swiftpm/
+__pycache__/
+*.pyc
+*.zip
