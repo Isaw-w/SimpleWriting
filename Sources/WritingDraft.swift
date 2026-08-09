@@ -7,12 +7,17 @@ struct WritingDraft: Codable, Equatable, Identifiable {
     var body: String
     let createdAt: Date
     var updatedAt: Date
+    /// The group (theme) this draft belongs to. Optional and defaulted so drafts
+    /// saved before groups existed still decode — they're adopted into the
+    /// default group on load.
+    var groupID: UUID?
 
-    init(id: UUID = UUID(), body: String = "", createdAt: Date = Date(), updatedAt: Date = Date()) {
+    init(id: UUID = UUID(), body: String = "", createdAt: Date = Date(), updatedAt: Date = Date(), groupID: UUID? = nil) {
         self.id = id
         self.body = body
         self.createdAt = createdAt
         self.updatedAt = updatedAt
+        self.groupID = groupID
     }
 
     /// Title for the history list: the first non-empty line, with any leading

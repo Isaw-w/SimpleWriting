@@ -11,7 +11,7 @@ import UniformTypeIdentifiers
 /// Hemingway + grammar highlighting is re-bridged as ProseMirror decorations in
 /// the next stage; the header already shows the local readability grade and
 /// counts, which need no editor integration.
-final class WritingEditorWindowController: NSWindowController, NSWindowDelegate, NSTableViewDataSource, NSTableViewDelegate, WKScriptMessageHandler, WKNavigationDelegate {
+final class WritingEditorWindowController: NSWindowController, NSWindowDelegate, NSTableViewDataSource, NSTableViewDelegate, WKScriptMessageHandler, WKNavigationDelegate, NSMenuDelegate {
     static let shared = WritingEditorWindowController()
 
     private let store = DraftStore.shared
@@ -26,9 +26,20 @@ final class WritingEditorWindowController: NSWindowController, NSWindowDelegate,
     private var sidebarToggleButton: NSButton!
 
     private var sidebarPane: NSView!
-    private var sidebarToolbar: NSView!
+    private var groupBar: NSView!
+    private var groupButton: NSButton!
+    private var newDraftButton: NSButton!
     private var tableView: NSTableView!
     private var grammarToggle: NSButton!
+
+    // Groups (themes). Each draft belongs to one group; the sidebar shows one
+    // group at a time so the writer stays focused on a single theme.
+    private let groupStore = GroupStore.shared
+    private var groups: [WritingGroup] = []
+    private var currentGroupID: UUID?
+    /// Drafts in the current group, newest first — what the table shows.
+    private var visible: [WritingDraft] = []
+    private static let currentGroupKey = "currentGroupID"
 
     /// Distraction-free mode: the drafts sidebar can be collapsed to give the
     /// page the full window. New/Delete/Export then live in the menu bar, and the
@@ -91,14 +102,48 @@ final class WritingEditorWindowController: NSWindowController, NSWindowDelegate,
     }
 
     private func loadHistory() {
+        // Groups first, creating a default one on a fresh install.
+        groups = groupStore.load()
+        if groups.isEmpty {
+            groups = [WritingGroup(name: "Notes", order: 0)]
+            groupStore.save(groups)
+        }
+        let valid = Set(groups.map { $0.id })
+
+        // Adopt any pre-groups or orphaned drafts into the first group.
         drafts = store.allDrafts()
-        tableView.reloadData()
-        if let first = drafts.first {
+        let fallback = groups[0].id
+        for i in drafts.indices where drafts[i].groupID == nil || !valid.contains(drafts[i].groupID!) {
+            drafts[i].groupID = fallback
+            store.save(drafts[i])
+        }
+
+        // Restore the last-open group if it still exists.
+        if let saved = UserDefaults.standard.string(forKey: Self.currentGroupKey),
+           let id = UUID(uuidString: saved), valid.contains(id) {
+            currentGroupID = id
+        } else {
+            currentGroupID = groups[0].id
+        }
+
+        rebuildVisible()
+        if let first = visible.first {
             selectRow(0)
             loadDraft(first)
         } else {
             newDraft()
         }
+    }
+
+    private func currentGroup() -> WritingGroup? {
+        groups.first { $0.id == currentGroupID } ?? groups.first
+    }
+
+    /// Recompute the current group's drafts (newest first) and refresh the list.
+    private func rebuildVisible() {
+        visible = drafts.filter { $0.groupID == currentGroupID }.sorted { $0.updatedAt > $1.updatedAt }
+        groupButton?.title = currentGroup()?.name ?? "Notes"
+        tableView?.reloadData()
     }
 
     // MARK: - Construction
@@ -151,23 +196,31 @@ final class WritingEditorWindowController: NSWindowController, NSWindowDelegate,
                                                name: NSView.frameDidChangeNotification, object: pane)
         self.sidebarPane = pane
 
-        let toolbar = NSView(frame: .zero)
-        pane.addSubview(toolbar)
-        self.sidebarToolbar = toolbar
+        // Group bar: the current theme's name (a pull-down of all groups) on the
+        // left, and a New-note button on the right.
+        let bar = NSView(frame: .zero)
+        pane.addSubview(bar)
+        self.groupBar = bar
 
-        func button(_ title: String, _ id: String, _ action: Selector) -> NSButton {
-            let b = NSButton(title: title, target: self, action: action)
-            b.bezelStyle = .rounded
-            b.controlSize = .regular
-            b.font = .systemFont(ofSize: 13)
-            b.identifier = NSUserInterfaceItemIdentifier(id)
-            toolbar.addSubview(b)
-            return b
-        }
-        _ = button("New", "newButton", #selector(newDraftClicked))
-        let smaller = button("A−", "smallerButton", #selector(zoomOut)); smaller.toolTip = "Smaller text (⌘−)"
-        let bigger = button("A+", "biggerButton", #selector(zoomIn)); bigger.toolTip = "Bigger text (⌘+)"
-        _ = button("Delete", "deleteButton", #selector(deleteDraftClicked))
+        let gb = NSButton(title: "Notes", target: self, action: #selector(groupButtonClicked))
+        gb.isBordered = false
+        gb.alignment = .left
+        gb.font = .systemFont(ofSize: 14, weight: .semibold)
+        gb.imagePosition = .imageRight
+        gb.image = NSImage(systemSymbolName: "chevron.down", accessibilityDescription: "Switch group")?
+            .withSymbolConfiguration(NSImage.SymbolConfiguration(pointSize: 9, weight: .semibold))
+        gb.toolTip = "Switch or manage groups"
+        bar.addSubview(gb)
+        self.groupButton = gb
+
+        let plus = NSButton(title: "", target: self, action: #selector(newDraftClicked))
+        plus.image = NSImage(systemSymbolName: "square.and.pencil", accessibilityDescription: "New note")
+        plus.imagePosition = .imageOnly
+        plus.isBordered = false
+        plus.bezelStyle = .regularSquare
+        plus.toolTip = "New note (⌘N)"
+        bar.addSubview(plus)
+        self.newDraftButton = plus
 
         let scroll = NSScrollView(frame: .zero)
         scroll.borderType = .noBorder
@@ -187,6 +240,10 @@ final class WritingEditorWindowController: NSWindowController, NSWindowDelegate,
         scroll.documentView = table
         pane.addSubview(scroll)
         self.tableView = table
+
+        let rowMenu = NSMenu()
+        rowMenu.delegate = self
+        table.menu = rowMenu
     }
 
     private func buildEditor(in split: NSSplitView) {
@@ -263,27 +320,13 @@ final class WritingEditorWindowController: NSWindowController, NSWindowDelegate,
     private func layoutSidebar() {
         guard let pane = sidebarPane else { return }
         let bounds = pane.bounds
-        sidebarToolbar.frame = NSRect(x: 0, y: bounds.height - Self.toolbarHeight, width: bounds.width, height: Self.toolbarHeight)
-        let pad: CGFloat = 12
+        groupBar.frame = NSRect(x: 0, y: bounds.height - Self.toolbarHeight, width: bounds.width, height: Self.toolbarHeight)
+        let pad: CGFloat = 14
         let h: CGFloat = 26
         let y = ((Self.toolbarHeight - h) / 2).rounded()
-        func frame(_ id: String, _ rect: NSRect) {
-            sidebarToolbar.subviews.first { $0.identifier?.rawValue == id }?.frame = rect
-        }
-        // One evenly-spaced row — New · A− · A+ · Delete — centered in the
-        // toolbar so the spacing stays uniform (no stranded button) at any width.
-        let items: [(String, CGFloat)] = [
-            ("newButton", 58), ("smallerButton", 40), ("biggerButton", 40), ("deleteButton", 66),
-        ]
-        let totalButtonW = items.reduce(0) { $0 + $1.1 }
-        let available = bounds.width - pad * 2
-        let gap = max(8, min(16, (available - totalButtonW) / CGFloat(items.count - 1)))
-        let groupW = totalButtonW + gap * CGFloat(items.count - 1)
-        var x = (pad + max(0, (available - groupW) / 2)).rounded()
-        for (id, width) in items {
-            frame(id, NSRect(x: x, y: y, width: width, height: h))
-            x += width + gap
-        }
+        let plusW: CGFloat = 28
+        newDraftButton.frame = NSRect(x: bounds.width - pad - plusW, y: y, width: plusW, height: h)
+        groupButton.frame = NSRect(x: pad, y: y, width: max(0, newDraftButton.frame.minX - pad - 6), height: h)
         tableView.enclosingScrollView?.frame = NSRect(x: 0, y: 0, width: bounds.width, height: bounds.height - Self.toolbarHeight)
     }
 
@@ -332,8 +375,9 @@ final class WritingEditorWindowController: NSWindowController, NSWindowDelegate,
         webView.evaluateJavaScript("window.editorSetFontSize(\(Int(fontSize)))")
     }
 
-    @objc private func zoomIn() { setFontSize(fontSize + 2) }
-    @objc private func zoomOut() { setFontSize(fontSize - 2) }
+    @objc func zoomIn() { setFontSize(fontSize + 2) }
+    @objc func zoomOut() { setFontSize(fontSize - 2) }
+    @objc func actualSize() { setFontSize(Self.defaultFontSize) }
 
     private func setFontSize(_ size: CGFloat) {
         let clamped = min(Self.maxFontSize, max(Self.minFontSize, size))
@@ -433,10 +477,11 @@ final class WritingEditorWindowController: NSWindowController, NSWindowDelegate,
     private func newDraft() {
         flushCurrent()
         drafts.removeAll { $0.isEmpty && $0.id != currentDraft?.id }
-        let draft = WritingDraft()
+        var draft = WritingDraft()
+        draft.groupID = currentGroupID
         drafts.insert(draft, at: 0)
         currentDraft = draft
-        tableView.reloadData()
+        rebuildVisible()
         selectRow(0)
         loadDraft(draft)
         webView.evaluateJavaScript("window.editorFocus()")
@@ -448,8 +493,145 @@ final class WritingEditorWindowController: NSWindowController, NSWindowDelegate,
         store.delete(draft.id)
         drafts.removeAll { $0.id == draft.id }
         currentDraft = nil
-        tableView.reloadData()
-        if drafts.isEmpty { newDraft() } else { selectRow(0); loadDraft(drafts[0]) }
+        rebuildVisible()
+        if visible.isEmpty { newDraft() } else { selectRow(0); loadDraft(visible[0]) }
+    }
+
+    // MARK: - Groups
+
+    @objc private func groupButtonClicked() {
+        let menu = NSMenu()
+        for g in groups {
+            let item = menu.addItem(withTitle: g.name, action: #selector(selectGroupMenu(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = g.id.uuidString
+            item.state = (g.id == currentGroupID) ? .on : .off
+        }
+        menu.addItem(.separator())
+        let name = currentGroup()?.name ?? ""
+        let ng = menu.addItem(withTitle: "New Group…", action: #selector(newGroupClicked), keyEquivalent: ""); ng.target = self
+        let rn = menu.addItem(withTitle: "Rename “\(name)”…", action: #selector(renameCurrentGroup), keyEquivalent: ""); rn.target = self
+        let del = menu.addItem(withTitle: "Delete “\(name)”", action: #selector(deleteCurrentGroup), keyEquivalent: ""); del.target = self
+        del.isEnabled = groups.count > 1
+        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: groupButton.bounds.height + 4), in: groupButton)
+    }
+
+    @objc private func selectGroupMenu(_ sender: NSMenuItem) {
+        guard let s = sender.representedObject as? String, let id = UUID(uuidString: s) else { return }
+        switchGroup(to: id)
+    }
+
+    private func switchGroup(to id: UUID) {
+        guard id != currentGroupID else { return }
+        flushCurrent()
+        drafts.removeAll { $0.isEmpty && $0.id != currentDraft?.id }
+        currentGroupID = id
+        UserDefaults.standard.set(id.uuidString, forKey: Self.currentGroupKey)
+        rebuildVisible()
+        if let first = visible.first { selectRow(0); loadDraft(first) } else { newDraft() }
+    }
+
+    @objc func newGroupClicked() {
+        guard let name = promptForName(title: "New Group", initial: "") else { return }
+        let order = (groups.map { $0.order }.max() ?? -1) + 1
+        let group = WritingGroup(name: name, order: order)
+        groups.append(group)
+        groupStore.save(groups)
+        switchGroup(to: group.id)
+    }
+
+    @objc private func renameCurrentGroup() {
+        guard let g = currentGroup(), let name = promptForName(title: "Rename Group", initial: g.name) else { return }
+        if let i = groups.firstIndex(where: { $0.id == g.id }) {
+            groups[i].name = name
+            groupStore.save(groups)
+        }
+        groupButton.title = name
+    }
+
+    @objc private func deleteCurrentGroup() {
+        guard groups.count > 1, let g = currentGroup() else { return }
+        let target = groups.first { $0.id != g.id }!
+        let count = drafts.filter { $0.groupID == g.id && !$0.isEmpty }.count
+        let alert = NSAlert()
+        alert.messageText = "Delete “\(g.name)”?"
+        alert.informativeText = count == 0
+            ? "This group is empty."
+            : "Its \(count) note\(count == 1 ? "" : "s") will move to “\(target.name)”."
+        alert.addButton(withTitle: "Delete")
+        alert.addButton(withTitle: "Cancel")
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        for i in drafts.indices where drafts[i].groupID == g.id {
+            drafts[i].groupID = target.id
+            if !drafts[i].isEmpty { store.save(drafts[i]) }
+        }
+        groups.removeAll { $0.id == g.id }
+        groupStore.save(groups)
+        switchGroup(to: target.id)
+    }
+
+    // MARK: - Row context menu (move / delete a note)
+
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        guard menu === tableView.menu else { return }
+        menu.removeAllItems()
+        let row = tableView.clickedRow
+        guard row >= 0, row < visible.count else { return }
+        let draft = visible[row]
+        let move = NSMenuItem(title: "Move to", action: nil, keyEquivalent: "")
+        let sub = NSMenu()
+        for g in groups where g.id != draft.groupID {
+            let item = sub.addItem(withTitle: g.name, action: #selector(moveClickedDraft(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = [draft.id.uuidString, g.id.uuidString]
+        }
+        move.submenu = sub
+        move.isEnabled = !sub.items.isEmpty
+        menu.addItem(move)
+        menu.addItem(.separator())
+        let del = menu.addItem(withTitle: "Delete", action: #selector(deleteClickedDraft(_:)), keyEquivalent: "")
+        del.target = self
+        del.representedObject = draft.id.uuidString
+    }
+
+    @objc private func moveClickedDraft(_ sender: NSMenuItem) {
+        guard let pair = sender.representedObject as? [String], pair.count == 2,
+              let did = UUID(uuidString: pair[0]), let gid = UUID(uuidString: pair[1]) else { return }
+        if currentDraft?.id == did { currentDraft?.groupID = gid }
+        if let i = drafts.firstIndex(where: { $0.id == did }) {
+            drafts[i].groupID = gid
+            if !drafts[i].isEmpty { store.save(drafts[i]) }
+        }
+        rebuildVisible()
+        if !visible.contains(where: { $0.id == currentDraft?.id }) {
+            if let first = visible.first { selectRow(0); loadDraft(first) } else { newDraft() }
+        }
+    }
+
+    @objc private func deleteClickedDraft(_ sender: NSMenuItem) {
+        guard let s = sender.representedObject as? String, let id = UUID(uuidString: s) else { return }
+        autosaveWork?.cancel()
+        store.delete(id)
+        drafts.removeAll { $0.id == id }
+        if currentDraft?.id == id { currentDraft = nil }
+        rebuildVisible()
+        if currentDraft == nil {
+            if visible.isEmpty { newDraft() } else { selectRow(0); loadDraft(visible[0]) }
+        }
+    }
+
+    private func promptForName(title: String, initial: String) -> String? {
+        let alert = NSAlert()
+        alert.messageText = title
+        let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 240, height: 24))
+        field.stringValue = initial
+        alert.accessoryView = field
+        alert.addButton(withTitle: "OK")
+        alert.addButton(withTitle: "Cancel")
+        alert.window.initialFirstResponder = field
+        guard alert.runModal() == .alertFirstButtonReturn else { return nil }
+        let name = field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        return name.isEmpty ? nil : name
     }
 
     private func flushCurrent() {
@@ -656,9 +838,13 @@ final class WritingEditorWindowController: NSWindowController, NSWindowDelegate,
     private func handleChange(markdown: String, text: String) {
         currentDraft?.body = markdown
         currentDraft?.updatedAt = Date()
-        if let draft = currentDraft, let index = drafts.firstIndex(where: { $0.id == draft.id }) {
-            drafts[index] = draft
-            refreshRowTitle(index)
+        if let draft = currentDraft {
+            if let i = drafts.firstIndex(where: { $0.id == draft.id }) { drafts[i] = draft }
+            // Update the title in place; don't reorder mid-typing (jarring).
+            if let v = visible.firstIndex(where: { $0.id == draft.id }) {
+                visible[v] = draft
+                refreshRowTitle(v)
+            }
         }
         lastText = text
         recomputeAndSend()
@@ -713,14 +899,14 @@ final class WritingEditorWindowController: NSWindowController, NSWindowDelegate,
     // MARK: - Table
 
     private func selectRow(_ row: Int) {
-        guard row >= 0, row < drafts.count else { return }
+        guard row >= 0, row < visible.count else { return }
         tableView.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false)
     }
 
     private func refreshRowTitle(_ row: Int) {
-        guard row >= 0, row < drafts.count,
+        guard row >= 0, row < visible.count,
               let cell = tableView.view(atColumn: 0, row: row, makeIfNecessary: false) as? DraftCellView else { return }
-        let draft = drafts[row]
+        let draft = visible[row]
         cell.configure(
             title: draft.displayTitle,
             subtitle: draft.isEmpty ? "New draft" : relativeDate.localizedString(for: draft.updatedAt, relativeTo: Date()),
@@ -729,11 +915,11 @@ final class WritingEditorWindowController: NSWindowController, NSWindowDelegate,
         )
     }
 
-    func numberOfRows(in tableView: NSTableView) -> Int { drafts.count }
+    func numberOfRows(in tableView: NSTableView) -> Int { visible.count }
 
     func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
-        guard row < drafts.count else { return nil }
-        let draft = drafts[row]
+        guard row < visible.count else { return nil }
+        let draft = visible[row]
         let identifier = NSUserInterfaceItemIdentifier("draftCell")
         let cell = tableView.makeView(withIdentifier: identifier, owner: self) as? DraftCellView ?? DraftCellView(identifier: identifier)
         cell.configure(
@@ -747,9 +933,9 @@ final class WritingEditorWindowController: NSWindowController, NSWindowDelegate,
 
     func tableViewSelectionDidChange(_ notification: Notification) {
         let row = tableView.selectedRow
-        guard row >= 0, row < drafts.count, drafts[row].id != currentDraft?.id else { return }
+        guard row >= 0, row < visible.count, visible[row].id != currentDraft?.id else { return }
         flushCurrent()
-        loadDraft(drafts[row])
+        loadDraft(visible[row])
     }
 
     // MARK: - Window delegate

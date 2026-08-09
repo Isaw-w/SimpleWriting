@@ -37,7 +37,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let fileItem = NSMenuItem()
         mainMenu.addItem(fileItem)
         let fileMenu = NSMenu(title: "File")
-        fileMenu.addItem(withTitle: "New", action: #selector(WritingEditorWindowController.newDraftClicked), keyEquivalent: "n").target = editor
+        fileMenu.addItem(withTitle: "New Note", action: #selector(WritingEditorWindowController.newDraftClicked), keyEquivalent: "n").target = editor
+        let newGroup = fileMenu.addItem(withTitle: "New Group…", action: #selector(WritingEditorWindowController.newGroupClicked), keyEquivalent: "n")
+        newGroup.keyEquivalentModifierMask = [.command, .shift]
+        newGroup.target = editor
         fileMenu.addItem(.separator())
         fileMenu.addItem(withTitle: "Export as PDF…", action: #selector(WritingEditorWindowController.exportPDF), keyEquivalent: "e").target = editor
         let mdItem = fileMenu.addItem(withTitle: "Export as Markdown…", action: #selector(WritingEditorWindowController.exportMarkdown), keyEquivalent: "e")
@@ -66,6 +69,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let sidebarItem = viewMenu.addItem(withTitle: "Hide Sidebar", action: #selector(WritingEditorWindowController.toggleSidebar), keyEquivalent: "s")
         sidebarItem.keyEquivalentModifierMask = [.command, .control]
         sidebarItem.target = editor
+        viewMenu.addItem(.separator())
+        viewMenu.addItem(withTitle: "Zoom In", action: #selector(WritingEditorWindowController.zoomIn), keyEquivalent: "+").target = editor
+        viewMenu.addItem(withTitle: "Zoom Out", action: #selector(WritingEditorWindowController.zoomOut), keyEquivalent: "-").target = editor
+        viewMenu.addItem(withTitle: "Actual Size", action: #selector(WritingEditorWindowController.actualSize), keyEquivalent: "0").target = editor
         viewItem.submenu = viewMenu
 
         NSApp.mainMenu = mainMenu
