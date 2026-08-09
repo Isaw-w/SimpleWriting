@@ -138,7 +138,7 @@ final class WritingEditorWindowController: NSWindowController, NSWindowDelegate,
         // Restore the collapsed sidebar if that's how it was left.
         if UserDefaults.standard.bool(forKey: Self.sidebarCollapsedKey) {
             sidebarCollapsed = true
-            sidebarPane.isHidden = true
+            sidebarPane.removeFromSuperview()
             split.adjustSubviews()
         }
         updateSidebarToggleButton()
@@ -158,8 +158,8 @@ final class WritingEditorWindowController: NSWindowController, NSWindowDelegate,
         func button(_ title: String, _ id: String, _ action: Selector) -> NSButton {
             let b = NSButton(title: title, target: self, action: action)
             b.bezelStyle = .rounded
-            b.controlSize = .small
-            b.font = .systemFont(ofSize: 12)
+            b.controlSize = .regular
+            b.font = .systemFont(ofSize: 13)
             b.identifier = NSUserInterfaceItemIdentifier(id)
             toolbar.addSubview(b)
             return b
@@ -265,7 +265,7 @@ final class WritingEditorWindowController: NSWindowController, NSWindowDelegate,
         let bounds = pane.bounds
         sidebarToolbar.frame = NSRect(x: 0, y: bounds.height - Self.toolbarHeight, width: bounds.width, height: Self.toolbarHeight)
         let pad: CGFloat = 12
-        let h: CGFloat = 22
+        let h: CGFloat = 26
         let y = ((Self.toolbarHeight - h) / 2).rounded()
         func frame(_ id: String, _ rect: NSRect) {
             sidebarToolbar.subviews.first { $0.identifier?.rawValue == id }?.frame = rect
@@ -273,7 +273,7 @@ final class WritingEditorWindowController: NSWindowController, NSWindowDelegate,
         // One evenly-spaced row — New · A− · A+ · Delete — centered in the
         // toolbar so the spacing stays uniform (no stranded button) at any width.
         let items: [(String, CGFloat)] = [
-            ("newButton", 52), ("smallerButton", 34), ("biggerButton", 34), ("deleteButton", 58),
+            ("newButton", 58), ("smallerButton", 40), ("biggerButton", 40), ("deleteButton", 66),
         ]
         let totalButtonW = items.reduce(0) { $0 + $1.1 }
         let available = bounds.width - pad * 2
@@ -351,13 +351,15 @@ final class WritingEditorWindowController: NSWindowController, NSWindowDelegate,
         if sidebarCollapsed {
             let width = sidebarPane.frame.width
             if width > 0 { savedSidebarWidth = width }
-            sidebarPane.isHidden = true
-            split.adjustSubviews()
+            // Fully remove the pane so its divider goes away too — merely hiding
+            // it leaves a 1px divider line at the window's edge.
+            sidebarPane.removeFromSuperview()
         } else {
-            sidebarPane.isHidden = false
-            split.adjustSubviews()
+            split.insertArrangedSubview(sidebarPane, at: 0)
+            split.setHoldingPriority(.defaultHigh, forSubviewAt: 0)
             split.setPosition(savedSidebarWidth, ofDividerAt: 0)
         }
+        split.adjustSubviews()
         UserDefaults.standard.set(sidebarCollapsed, forKey: Self.sidebarCollapsedKey)
         updateSidebarToggleButton()
         layoutEditor()
