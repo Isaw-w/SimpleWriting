@@ -46,7 +46,7 @@ final class GrammarClient {
     You are a careful copy-editor with a very light touch. Judge only grammar, spelling, and punctuation, and trust the writer's voice, word choices, register, and style.
     Flag a span only when it is objectively and unambiguously wrong — the kind of mistake every editor would fix: subject–verb agreement, verb tense or form, plurals, pronoun case, homophones (their/there, its/it's, your/you're), a wrong article (a vs an), clear misspellings, and clearly missing or incorrect punctuation.
     Accept the writer's choices — do not flag them: generic bare nouns and missing articles that are a matter of register ("Human perceives the world"), possessive forms including plural possessives ("models' world", "the agent's world"), the indicative after perception or belief verbs ("I feel that it is beautiful"), and any phrasing that is merely stylistic. When in doubt, trust the writer and skip it — a false alarm is worse than a miss.
-    Mark the SMALLEST wrong span: for a subject–verb agreement error mark only the verb ("give"), for a misspelling only the misspelled word, for a wrong article only "a"/"an" — never the surrounding phrase, clause, or sentence.
+    Mark the SMALLEST wrong span: for a subject–verb agreement error mark only the verb ("give"), for a misspelling only the misspelled word, for a wrong article only "a"/"an" — never the surrounding phrase, clause, or sentence. But the fragment must be UNIQUE in the text: if that exact word appears more than once, extend it with the adjacent word(s) so it matches only the intended spot (e.g. "harness exist", not just "exist").
     Return raw JSON only: {"errors":[{"fragment":"exact substring, copied verbatim","focus":"grammar|spelling","type":"short category","hint":"the rule to apply, never the correction"}]}
     Return {"errors":[]} when the writing is grammatically sound.
     """
@@ -106,6 +106,18 @@ final class GrammarClient {
         return fragment.split { $0 == " " || $0 == "\n" || $0 == "\t" }.count > 8
     }
 
+    /// How many whole-word times `fragment` appears in the text.
+    private static func wholeWordCount(of fragment: String, in ns: NSString) -> Int {
+        var count = 0, from = 0
+        while from <= ns.length {
+            let r = FindingMerge.wholeWordRange(of: fragment, in: ns, from: from)
+            if r.location == NSNotFound { break }
+            count += 1
+            from = NSMaxRange(r)
+        }
+        return count
+    }
+
     private static func parse(content: String, in text: String) -> [GrammarError] {
         guard let start = content.firstIndex(of: "{"), let end = content.lastIndex(of: "}") else { return [] }
         guard let data = String(content[start...end]).data(using: .utf8),
@@ -120,6 +132,11 @@ final class GrammarClient {
             // word or short phrase, not light up a whole sentence. Drop a fragment
             // that spans a sentence boundary or runs too long.
             guard !Self.isTooBroad(fragment) else { continue }
+            // A short repeated word (e.g. "exist" twice) can't be located from the
+            // word alone — marking the first match risks highlighting a correct
+            // occurrence. Skip rather than guess; the prompt asks the model to
+            // return a unique fragment precisely to avoid this.
+            guard Self.wholeWordCount(of: fragment, in: ns) <= 1 else { continue }
             var range = FindingMerge.wholeWordRange(of: fragment, in: ns, from: searchStart)
             if range.location == NSNotFound { range = FindingMerge.wholeWordRange(of: fragment, in: ns, from: 0) }
             guard range.location != NSNotFound else { continue }
