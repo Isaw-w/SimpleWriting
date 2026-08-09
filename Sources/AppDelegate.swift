@@ -31,6 +31,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         appMenu.addItem(withTitle: "Quit SimpleWriting", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         appItem.submenu = appMenu
 
+        // File — draft + export actions, so they stay reachable when the sidebar
+        // (which holds New/Delete) is collapsed.
+        let editor = WritingEditorWindowController.shared
+        let fileItem = NSMenuItem()
+        mainMenu.addItem(fileItem)
+        let fileMenu = NSMenu(title: "File")
+        fileMenu.addItem(withTitle: "New", action: #selector(WritingEditorWindowController.newDraftClicked), keyEquivalent: "n").target = editor
+        fileMenu.addItem(.separator())
+        fileMenu.addItem(withTitle: "Export as PDF…", action: #selector(WritingEditorWindowController.exportPDF), keyEquivalent: "e").target = editor
+        let mdItem = fileMenu.addItem(withTitle: "Export as Markdown…", action: #selector(WritingEditorWindowController.exportMarkdown), keyEquivalent: "e")
+        mdItem.keyEquivalentModifierMask = [.command, .shift]
+        mdItem.target = editor
+        fileMenu.addItem(.separator())
+        fileMenu.addItem(withTitle: "Delete Draft", action: #selector(WritingEditorWindowController.deleteDraftClicked), keyEquivalent: "").target = editor
+        fileItem.submenu = fileMenu
+
         let editItem = NSMenuItem()
         mainMenu.addItem(editItem)
         let editMenu = NSMenu(title: "Edit")
@@ -42,6 +58,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         editMenu.addItem(withTitle: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
         editMenu.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
         editItem.submenu = editMenu
+
+        // View — collapse the drafts sidebar for distraction-free writing.
+        let viewItem = NSMenuItem()
+        mainMenu.addItem(viewItem)
+        let viewMenu = NSMenu(title: "View")
+        let sidebarItem = viewMenu.addItem(withTitle: "Hide Sidebar", action: #selector(WritingEditorWindowController.toggleSidebar), keyEquivalent: "s")
+        sidebarItem.keyEquivalentModifierMask = [.command, .control]
+        sidebarItem.target = editor
+        viewItem.submenu = viewMenu
 
         NSApp.mainMenu = mainMenu
     }

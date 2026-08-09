@@ -1,5 +1,6 @@
 import AppKit
 import WebKit
+import UniformTypeIdentifiers
 
 /// A standalone, distraction-free writing editor built on a real ProseMirror
 /// WYSIWYG surface (bundled offline in `Resources/editor`). Links render as their
@@ -22,11 +23,19 @@ final class WritingEditorWindowController: NSWindowController, NSWindowDelegate,
     private var summaryLabel: NSTextField!
     private var wordCountLabel: NSTextField!
     private var checkingSpinner: NSProgressIndicator!
+    private var sidebarToggleButton: NSButton!
 
     private var sidebarPane: NSView!
     private var sidebarToolbar: NSView!
     private var tableView: NSTableView!
     private var grammarToggle: NSButton!
+
+    /// Distraction-free mode: the drafts sidebar can be collapsed to give the
+    /// page the full window. New/Delete/Export then live in the menu bar, and the
+    /// header keeps a toggle button so the sidebar is always one click away.
+    private var sidebarCollapsed = false
+    private var savedSidebarWidth: CGFloat = WritingEditorWindowController.sidebarWidth
+    private static let sidebarCollapsedKey = "sidebarCollapsed"
 
     private var drafts: [WritingDraft] = []
     private var currentDraft: WritingDraft?
@@ -125,6 +134,14 @@ final class WritingEditorWindowController: NSWindowController, NSWindowDelegate,
 
         layoutSidebar()
         layoutEditor()
+
+        // Restore the collapsed sidebar if that's how it was left.
+        if UserDefaults.standard.bool(forKey: Self.sidebarCollapsedKey) {
+            sidebarCollapsed = true
+            sidebarPane.isHidden = true
+            split.adjustSubviews()
+        }
+        updateSidebarToggleButton()
     }
 
     private func buildSidebar(in split: NSSplitView) {
@@ -183,6 +200,17 @@ final class WritingEditorWindowController: NSWindowController, NSWindowDelegate,
         header.wantsLayer = true
         pane.addSubview(header)
         self.headerView = header
+
+        let sbToggle = NSButton(frame: .zero)
+        sbToggle.image = NSImage(systemSymbolName: "sidebar.left", accessibilityDescription: "Toggle sidebar")
+        sbToggle.imagePosition = .imageOnly
+        sbToggle.isBordered = false
+        sbToggle.bezelStyle = .regularSquare
+        sbToggle.target = self
+        sbToggle.action = #selector(toggleSidebar)
+        sbToggle.toolTip = "Hide sidebar (⌃⌘S)"
+        header.addSubview(sbToggle)
+        self.sidebarToggleButton = sbToggle
 
         let spinner = NSProgressIndicator(frame: .zero)
         spinner.style = .spinning
@@ -264,17 +292,22 @@ final class WritingEditorWindowController: NSWindowController, NSWindowDelegate,
         let bounds = pane.bounds
         headerView.frame = NSRect(x: 0, y: bounds.height - Self.headerHeight, width: bounds.width, height: Self.headerHeight)
         // One centered band so labels, toggle, spinner and count all line up.
-        let pad: CGFloat = 22
+        let pad: CGFloat = 16
         let rowH: CGFloat = 22
         let rowY = ((Self.headerHeight - rowH) / 2).rounded()
         let wordWidth: CGFloat = 96
         let toggleWidth: CGFloat = 132
         let spinnerSize: CGFloat = 15
 
+        // Sidebar toggle sits at the far left; the checking band follows it.
+        let sbW: CGFloat = 26
+        sidebarToggleButton.frame = NSRect(x: pad - 2, y: rowY, width: sbW, height: rowH)
+        let bandX = pad - 2 + sbW + 8
+
         wordCountLabel.frame = NSRect(x: bounds.width - pad - wordWidth, y: rowY, width: wordWidth, height: rowH)
         grammarToggle.frame = NSRect(x: wordCountLabel.frame.minX - 12 - toggleWidth, y: rowY, width: toggleWidth, height: rowH)
-        checkingSpinner.frame = NSRect(x: pad, y: ((Self.headerHeight - spinnerSize) / 2).rounded(), width: spinnerSize, height: spinnerSize)
-        let summaryX = pad + spinnerSize + 8
+        checkingSpinner.frame = NSRect(x: bandX, y: ((Self.headerHeight - spinnerSize) / 2).rounded(), width: spinnerSize, height: spinnerSize)
+        let summaryX = bandX + spinnerSize + 8
         summaryLabel.frame = NSRect(x: summaryX, y: rowY, width: max(0, grammarToggle.frame.minX - summaryX - 10), height: rowH)
         webView.frame = NSRect(x: 0, y: 0, width: bounds.width, height: bounds.height - Self.headerHeight)
     }
@@ -291,6 +324,7 @@ final class WritingEditorWindowController: NSWindowController, NSWindowDelegate,
         headerView.layer?.backgroundColor = webBackground().cgColor
         summaryLabel.textColor = theme.readableSecondaryText
         wordCountLabel.textColor = theme.readableTertiaryText
+        sidebarToggleButton.contentTintColor = theme.readableSecondaryText
         webView.evaluateJavaScript("window.editorSetTheme(\(theme.isDark ? "true" : "false"))")
     }
 
@@ -309,9 +343,90 @@ final class WritingEditorWindowController: NSWindowController, NSWindowDelegate,
         applyFontToWeb()
     }
 
+    // MARK: - Sidebar collapse
+
+    @objc func toggleSidebar() {
+        guard let split = window?.contentView as? NSSplitView else { return }
+        sidebarCollapsed.toggle()
+        if sidebarCollapsed {
+            let width = sidebarPane.frame.width
+            if width > 0 { savedSidebarWidth = width }
+            sidebarPane.isHidden = true
+            split.adjustSubviews()
+        } else {
+            sidebarPane.isHidden = false
+            split.adjustSubviews()
+            split.setPosition(savedSidebarWidth, ofDividerAt: 0)
+        }
+        UserDefaults.standard.set(sidebarCollapsed, forKey: Self.sidebarCollapsedKey)
+        updateSidebarToggleButton()
+        layoutEditor()
+    }
+
+    private func updateSidebarToggleButton() {
+        sidebarToggleButton?.toolTip = sidebarCollapsed ? "Show sidebar (⌃⌘S)" : "Hide sidebar (⌃⌘S)"
+    }
+
+    // MARK: - Export
+
+    /// A filename-safe base name for exports, taken from the draft's title.
+    private func exportBaseName() -> String {
+        let raw = currentDraft?.displayTitle ?? "Untitled"
+        let cleaned = raw.components(separatedBy: CharacterSet(charactersIn: "/\\:")).joined(separator: "-")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return cleaned.isEmpty ? "Untitled" : cleaned
+    }
+
+    @objc func exportMarkdown() {
+        guard let window else { return }
+        webView.evaluateJavaScript("window.editorGetMarkdown ? window.editorGetMarkdown() : ''") { [weak self] result, _ in
+            guard let self else { return }
+            let markdown = (result as? String) ?? ""
+            let panel = NSSavePanel()
+            panel.allowedContentTypes = [UTType(filenameExtension: "md") ?? .plainText]
+            panel.nameFieldStringValue = "\(self.exportBaseName()).md"
+            panel.beginSheetModal(for: window) { response in
+                guard response == .OK, let url = panel.url else { return }
+                try? markdown.write(to: url, atomically: true, encoding: .utf8)
+            }
+        }
+    }
+
+    @objc func exportPDF() {
+        guard let window, let web = webView else { return }
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.pdf]
+        panel.nameFieldStringValue = "\(exportBaseName()).pdf"
+        panel.beginSheetModal(for: window) { response in
+            guard response == .OK, let url = panel.url else { return }
+            let info = NSPrintInfo()
+            info.paperSize = NSSize(width: 612, height: 792) // US Letter, 72 dpi
+            info.topMargin = 56; info.bottomMargin = 56
+            info.leftMargin = 64; info.rightMargin = 64
+            info.horizontalPagination = .fit
+            info.verticalPagination = .automatic
+            info.isHorizontallyCentered = false
+            info.isVerticallyCentered = false
+            info.jobDisposition = .save
+            info.dictionary()[NSPrintInfo.AttributeKey.jobSavingURL] = url as NSURL
+            let op = web.printOperation(with: info)
+            op.showsPrintPanel = false
+            op.showsProgressPanel = false
+            op.run()
+        }
+    }
+
+    /// Keep the sidebar-toggle menu item's title in step with the current state.
+    @objc func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
+        if menuItem.action == #selector(toggleSidebar) {
+            menuItem.title = sidebarCollapsed ? "Show Sidebar" : "Hide Sidebar"
+        }
+        return true
+    }
+
     // MARK: - Draft lifecycle
 
-    @objc private func newDraftClicked() { newDraft() }
+    @objc func newDraftClicked() { newDraft() }
 
     private func newDraft() {
         flushCurrent()
@@ -325,7 +440,7 @@ final class WritingEditorWindowController: NSWindowController, NSWindowDelegate,
         webView.evaluateJavaScript("window.editorFocus()")
     }
 
-    @objc private func deleteDraftClicked() {
+    @objc func deleteDraftClicked() {
         guard let draft = currentDraft else { return }
         autosaveWork?.cancel()
         store.delete(draft.id)

@@ -79,6 +79,26 @@
     }
     .hl-tip-title { font-size: 12.5px; font-weight: 700; margin-bottom: 4px; letter-spacing: 0.01em; }
     .hl-tip-hint { font-size: 14px; line-height: 1.45; }
+
+    /* PDF export goes through the print path: plain black-on-white, page
+       margins supplied by the print job, and no grammar highlights or tooltips
+       baked into the document. Inline decoration styles are overridden here. */
+    @media print {
+      html, body { background: #fff !important; height: auto; }
+      #editor {
+        max-width: none; margin: 0; padding: 0;
+        color: #000 !important; font-size: 12pt; line-height: 1.55;
+        animation: none;
+      }
+      .ProseMirror { min-height: 0; }
+      .ProseMirror a { color: #000 !important; border-bottom: none !important; }
+      .hl {
+        background: transparent !important; padding: 0 !important;
+        text-decoration: none !important; border: 0 !important; box-shadow: none !important;
+      }
+      .hl-tip { display: none !important; }
+      .ProseMirror .is-empty::before { content: none !important; }
+    }
   </style>
 </head>
 <body>
