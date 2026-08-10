@@ -8,7 +8,7 @@ The whole idea: **use it to build your own agency and write your best possible p
 
 ## Philosophy
 
-Most modern tools now finish your thoughts for you. That is convenient — and it is also how you stop being a writer. SimpleWriting takes the opposite stance. The words on the page are yours, start to finish. It is for people learning English, practising their craft, or who simply believe writing is worth doing yourself.
+The words on the page are yours, start to finish. It is for people learning English, practising their craft, or who simply believe writing is worth doing yourself.
 
 > You do the writing. You keep the agency. You produce your best possible piece.
 
