@@ -13,6 +13,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return true
     }
 
+    /// Files opened from Finder ("Open With", double-click, drag onto the icon)
+    /// are imported as notes.
+    func application(_ application: NSApplication, open urls: [URL]) {
+        WritingEditorWindowController.shared.openExternalFiles(urls)
+    }
+
     /// A minimal menu bar. The Edit items target the first responder, so the
     /// WKWebView editor gets standard Copy/Paste/Undo/Select-All shortcuts.
     private func installMainMenu() {

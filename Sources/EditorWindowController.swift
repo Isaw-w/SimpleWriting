@@ -415,6 +415,15 @@ final class WritingEditorWindowController: NSWindowController, NSWindowDelegate,
 
     // MARK: - Open / import
 
+    /// Entry point for files opened from Finder — make sure the window exists,
+    /// bring it forward, and import.
+    func openExternalFiles(_ urls: [URL]) {
+        if window == nil { show() }
+        NSApp.activate(ignoringOtherApps: true)
+        window?.makeKeyAndOrderFront(nil)
+        importFiles(urls)
+    }
+
     @objc func openFileClicked() {
         guard let window else { return }
         let panel = NSOpenPanel()
