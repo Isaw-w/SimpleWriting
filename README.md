@@ -18,6 +18,24 @@ Most modern tools now finish your thoughts for you. That is convenient — and i
 2. **Grammar you fix yourself.** It tells you when your grammar is wrong — but it will *not* fix it for you. You make the correction by hand, and exercise your own cognitive power.
 3. **Local and private.** Everything stays on your Mac, like a notes app. No folders to manage, nothing to export, nothing in the cloud.
 
+## Markdown
+
+Type markdown and it becomes real formatting as you go — the document is stored as clean Markdown and round-trips exactly:
+
+| You type | You get |
+|---|---|
+| `# ` … `###### ` | Headings 1–6 |
+| `**bold**` | **bold** |
+| `_italic_` | *italic* |
+| `` `code` `` | inline `code` |
+| ` ``` ` | a code block |
+| `> ` | blockquote |
+| `- ` / `* ` / `1. ` | bullet / ordered lists |
+| Tab / Shift-Tab | indent / outdent (nested lists) |
+| `---` | horizontal rule |
+
+Plus ⌘B / ⌘I / ⌘` for bold / italic / code, ⌘K for a link, Shift-Enter for a line break, and ⇧⌘C to toggle a code block.
+
 ## Install
 
 1. [Download `SimpleWriting.app`](../../releases/latest) from the Releases page.
