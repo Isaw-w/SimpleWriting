@@ -35,6 +35,31 @@
     math-field::part(virtual-keyboard-toggle), math-field::part(menu-toggle) { display: none; }
     .result { color: var(--muted); font-size: 19px; margin: 0.05em 0 0.35em 0.1em; }
     .result .eq { color: var(--accent); margin-right: 0.3em; font-style: normal; }
+
+    /* Graph blocks: a small expression list, then a live canvas — one quiet
+       layout for both 2D geometry (JSXGraph) and 3D surfaces (MathBox). */
+    .exprs { margin: 0.15em 0 0.4em; }
+    .expr-row { display: flex; }
+    .expr {
+      flex: 1; min-width: 0; box-sizing: border-box;
+      font-family: ui-monospace, "SF Mono", Menlo, monospace;
+      font-size: 15px; line-height: 1.5; color: var(--fg);
+      background: transparent; border: none; outline: none;
+      padding: 3px 2px; caret-color: var(--accent);
+    }
+    .expr::placeholder { color: var(--muted); font-style: italic; }
+    .expr.bad { color: #c0532f; }
+    body.dark .expr.bad { color: #e0956a; }
+    .plot {
+      position: relative; width: 100%;
+      border: 1px solid var(--faint); border-radius: 10px;
+      background: var(--bg); overflow: hidden;
+    }
+    .plot.plot2d { height: 360px; }
+    .plot.plot3d { height: 380px; }
+    .plot.plot2d text { fill: var(--muted); }
+    /* MathBox ships a generic loading spinner; hide it — a graph should just appear. */
+    .plot [class*="splash"] { display: none !important; }
   </style>
 </head>
 <body>
