@@ -18,6 +18,10 @@ cp -f ".build/release/SimpleWriting" "$APP/Contents/MacOS/SimpleWriting"
 rm -rf "$APP/Contents/Resources/editor"
 cp -R Resources/editor "$APP/Contents/Resources/editor"
 
+# Bundle the offline Math Playground (MathLive + Compute Engine).
+rm -rf "$APP/Contents/Resources/math"
+cp -R Resources/math "$APP/Contents/Resources/math"
+
 # Ad-hoc sign so Gatekeeper allows a right-click → Open on the build machine.
 codesign --force --deep -s - "$APP"
 xattr -cr "$APP"

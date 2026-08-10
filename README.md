@@ -11,6 +11,7 @@ The words are yours, start to finish.
 - **You do the writing.** Every word on the page is yours.
 - **Grammar you fix yourself.** It shows the mistake and names the rule. You make the correction.
 - **Local and private.** Your notes stay on your Mac.
+- **Math Playground** (⌥⌘M). Type equations and it computes the answer — with room for notes beside the math.
 
 ## Get it
 

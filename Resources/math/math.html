@@ -1,0 +1,44 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="math.bundle.css">
+  <style>
+    :root {
+      --bg: #fbfaf7; --fg: #26231e; --muted: #a19b90; --faint: rgba(120,110,95,0.14);
+      --accent: #b6552a; --sel: rgba(182,85,42,0.16);
+    }
+    body.dark {
+      --bg: #17181a; --fg: #e7e4dd; --muted: #7c7a74; --faint: rgba(255,255,255,0.10);
+      --accent: #e0956a; --sel: rgba(224,149,106,0.20);
+    }
+    html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg); }
+    ::-webkit-scrollbar { width: 0; height: 0; }
+    ::selection { background: var(--sel); }
+    #book {
+      max-width: 720px; margin: 0 auto; padding: 7vh 32px 40vh;
+      font-family: ui-serif, "New York", "Iowan Old Style", Georgia, serif;
+    }
+    .block { margin: 0 0 0.35em; }
+    .text {
+      outline: none; font-size: 19px; line-height: 1.7; min-height: 1.7em;
+      color: var(--fg); -webkit-user-select: text;
+    }
+    .text:empty:before { content: attr(data-placeholder); color: var(--muted); font-style: italic; }
+    math-field {
+      display: block; font-size: 24px; background: transparent; border: none;
+      padding: 0.1em 0; color: var(--fg);
+      --caret-color: var(--accent); --selection-background-color: var(--sel);
+      --contains-highlight-background-color: transparent;
+    }
+    math-field::part(virtual-keyboard-toggle), math-field::part(menu-toggle) { display: none; }
+    .result { color: var(--muted); font-size: 19px; margin: 0.05em 0 0.35em 0.1em; }
+    .result .eq { color: var(--accent); margin-right: 0.3em; font-style: normal; }
+  </style>
+</head>
+<body>
+  <div id="book"></div>
+  <script src="math.bundle.js"></script>
+</body>
+</html>
