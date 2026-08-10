@@ -42,6 +42,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         newGroup.keyEquivalentModifierMask = [.command, .shift]
         newGroup.target = editor
         fileMenu.addItem(.separator())
+        fileMenu.addItem(withTitle: "Open…", action: #selector(WritingEditorWindowController.openFileClicked), keyEquivalent: "o").target = editor
+        fileMenu.addItem(.separator())
         fileMenu.addItem(withTitle: "Export as PDF…", action: #selector(WritingEditorWindowController.exportPDF), keyEquivalent: "e").target = editor
         let mdItem = fileMenu.addItem(withTitle: "Export as Markdown…", action: #selector(WritingEditorWindowController.exportMarkdown), keyEquivalent: "e")
         mdItem.keyEquivalentModifierMask = [.command, .shift]

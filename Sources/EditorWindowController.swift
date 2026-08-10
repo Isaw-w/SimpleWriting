@@ -413,6 +413,47 @@ final class WritingEditorWindowController: NSWindowController, NSWindowDelegate,
         sidebarToggleButton?.toolTip = sidebarCollapsed ? "Show sidebar (⌃⌘S)" : "Hide sidebar (⌃⌘S)"
     }
 
+    // MARK: - Open / import
+
+    @objc func openFileClicked() {
+        guard let window else { return }
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = true
+        var types: [UTType] = [.plainText, .text]
+        if let md = UTType(filenameExtension: "md") { types.append(md) }
+        if let markdown = UTType(filenameExtension: "markdown") { types.append(markdown) }
+        panel.allowedContentTypes = types
+        panel.message = "Open a Markdown file as a note"
+        panel.beginSheetModal(for: window) { [weak self] response in
+            guard response == .OK, let self else { return }
+            self.importFiles(panel.urls)
+        }
+    }
+
+    /// Copy each file's Markdown into a new note in the current group. The file
+    /// itself is left untouched — the note is a self-contained copy, like a
+    /// notes app that imports rather than links.
+    private func importFiles(_ urls: [URL]) {
+        flushCurrent()
+        var firstImported: WritingDraft?
+        for url in urls {
+            let content = (try? String(contentsOf: url, encoding: .utf8)) ?? (try? String(contentsOf: url))
+            guard let body = content, !body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { continue }
+            let draft = WritingDraft(body: body, groupID: currentGroupID)
+            drafts.insert(draft, at: 0)
+            store.save(draft)
+            if firstImported == nil { firstImported = draft }
+        }
+        rebuildVisible()
+        if let draft = firstImported {
+            currentDraft = draft
+            if let row = visible.firstIndex(where: { $0.id == draft.id }) { selectRow(row) }
+            loadDraft(draft)
+        }
+    }
+
     // MARK: - Export
 
     /// A filename-safe base name for exports, taken from the draft's title.
