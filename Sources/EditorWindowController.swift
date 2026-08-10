@@ -45,6 +45,7 @@ final class WritingEditorWindowController: NSWindowController, NSWindowDelegate,
     /// page the full window. New/Delete/Export then live in the menu bar, and the
     /// header keeps a toggle button so the sidebar is always one click away.
     private var sidebarCollapsed = false
+    private var sidebarAnim: Timer?
     private var savedSidebarWidth: CGFloat = WritingEditorWindowController.sidebarWidth
     private static let sidebarCollapsedKey = "sidebarCollapsed"
 
@@ -396,22 +397,48 @@ final class WritingEditorWindowController: NSWindowController, NSWindowDelegate,
 
     @objc func toggleSidebar() {
         guard let split = window?.contentView as? NSSplitView else { return }
+        sidebarAnim?.invalidate(); sidebarAnim = nil
         sidebarCollapsed.toggle()
-        if sidebarCollapsed {
-            let width = sidebarPane.frame.width
-            if width > 0 { savedSidebarWidth = width }
-            // Fully remove the pane so its divider goes away too — merely hiding
-            // it leaves a 1px divider line at the window's edge.
-            sidebarPane.removeFromSuperview()
-        } else {
-            split.insertArrangedSubview(sidebarPane, at: 0)
-            split.setHoldingPriority(.defaultHigh, forSubviewAt: 0)
-            split.setPosition(savedSidebarWidth, ofDividerAt: 0)
-        }
-        split.adjustSubviews()
         UserDefaults.standard.set(sidebarCollapsed, forKey: Self.sidebarCollapsedKey)
         updateSidebarToggleButton()
-        layoutEditor()
+        if sidebarCollapsed {
+            let from = sidebarPane.frame.width
+            if from > 0 { savedSidebarWidth = from }
+            animateDivider(from: from, to: 0) { [weak self] in
+                guard let self, let split = self.window?.contentView as? NSSplitView else { return }
+                // Remove the pane at the end so its 1px divider goes with it.
+                self.sidebarPane.removeFromSuperview()
+                split.adjustSubviews()
+                self.layoutEditor()
+            }
+        } else {
+            if sidebarPane.superview == nil {
+                split.insertArrangedSubview(sidebarPane, at: 0)
+                split.setHoldingPriority(.defaultHigh, forSubviewAt: 0)
+            }
+            split.setPosition(0, ofDividerAt: 0)
+            animateDivider(from: 0, to: savedSidebarWidth) { [weak self] in self?.layoutEditor() }
+        }
+    }
+
+    /// A quick easeOut slide of the divider — motion with a purpose (~0.2s), and
+    /// instant when the system asks for reduced motion.
+    private func animateDivider(from: CGFloat, to: CGFloat, completion: @escaping () -> Void) {
+        guard let split = window?.contentView as? NSSplitView else { completion(); return }
+        if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
+            split.setPosition(to, ofDividerAt: 0); completion(); return
+        }
+        let duration: TimeInterval = 0.2
+        let startTime = Date()
+        let timer = Timer(timeInterval: 1.0 / 60.0, repeats: true) { [weak self] t in
+            guard let self else { t.invalidate(); return }
+            let p = min(1, Date().timeIntervalSince(startTime) / duration)
+            let eased = 1 - pow(1 - p, 3) // easeOutCubic — quick, then settles
+            split.setPosition(from + (to - from) * CGFloat(eased), ofDividerAt: 0)
+            if p >= 1 { t.invalidate(); self.sidebarAnim = nil; completion() }
+        }
+        sidebarAnim = timer
+        RunLoop.main.add(timer, forMode: .common)
     }
 
     private func updateSidebarToggleButton() {

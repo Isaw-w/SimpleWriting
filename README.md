@@ -1,22 +1,22 @@
 # SimpleWriting
 
-**Write without AI.**
+**Write it yourself.**
 
-SimpleWriting is a Mac writing app. It never autocompletes and never rewrites. It checks your grammar — and only tells you what is wrong, so you fix it yourself.
+SimpleWriting is a Mac writing app. You write every word. It checks your grammar, shows the mistake, and names the rule — you make the fix.
 
 The words are yours, start to finish.
 
 ## What it does
 
-- **No AI writing.** No autocomplete. No rewrite.
-- **Grammar you fix yourself.** It points at the mistake and names the rule. It never writes the correction.
+- **You do the writing.** Every word on the page is yours.
+- **Grammar you fix yourself.** It shows the mistake and names the rule. You make the correction.
 - **Local and private.** Your notes stay on your Mac.
 
 ## Get it
 
-Download `SimpleWriting.app` from [Releases](../../releases/latest). The first time, right-click it → **Open** (it is open-source and unsigned).
+Download `SimpleWriting.app` from [Releases](../../releases/latest). The first time, right-click it → **Open**.
 
-For grammar, open **Settings** (⌘,) and add any OpenAI-compatible API — base URL, model, key. Leave it blank and it is still a good editor.
+For grammar, open **Settings** (⌘,) and add any OpenAI-compatible API — base URL, model, key. It works as an editor with or without a key.
 
 ## Markdown
 
