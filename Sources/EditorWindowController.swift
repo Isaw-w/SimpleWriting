@@ -26,6 +26,16 @@ final class WritingEditorWindowController: NSWindowController, NSWindowDelegate,
     private var sidebarToggleButton: NSButton!
     private var headerDivider: NSView!
 
+    // Note / Math mode — a switch in the toolbar swaps the page between the notes
+    // editor and the Math Playground (same window, no separate menu).
+    private enum Mode { case note, math }
+    private var mode: Mode = .note
+    private var modeSwitch: NSSegmentedControl!
+    private var mathWebView: WKWebView?
+    private var mathReady = false
+    private var mathSaveWork: DispatchWorkItem?
+    private static let modeKey = "editorMode"
+
     private var sidebarPane: NSView!
     private var groupBar: NSView!
     private var groupButton: NSButton!
@@ -99,7 +109,10 @@ final class WritingEditorWindowController: NSWindowController, NSWindowDelegate,
         // Load the draft list exactly once. A second show() — e.g. when a file
         // is opened at launch and applicationDidFinishLaunching also calls show()
         // — must not re-run loadHistory and clobber the just-imported note.
-        if !historyLoaded { loadHistory(); historyLoaded = true }
+        if !historyLoaded {
+            loadHistory(); historyLoaded = true
+            if UserDefaults.standard.string(forKey: Self.modeKey) == "math" { setMode(.math) }
+        }
         NSApp.activate(ignoringOtherApps: true)
         window?.makeKeyAndOrderFront(nil)
     }
@@ -302,6 +315,15 @@ final class WritingEditorWindowController: NSWindowController, NSWindowDelegate,
         header.addSubview(toggle)
         self.grammarToggle = toggle
 
+        // The mode switch: Note | Math.
+        let modes = NSSegmentedControl(labels: ["Note", "Math"], trackingMode: .selectOne,
+                                       target: self, action: #selector(modeSwitched))
+        modes.segmentStyle = .texturedRounded
+        modes.selectedSegment = 0
+        modes.font = .systemFont(ofSize: 12, weight: .medium)
+        header.addSubview(modes)
+        self.modeSwitch = modes
+
         // A hairline that cleanly separates the header from the page.
         let divider = NSView()
         divider.wantsLayer = true
@@ -310,7 +332,7 @@ final class WritingEditorWindowController: NSWindowController, NSWindowDelegate,
 
         // Center every control on one line with Auto Layout — fixed frames let the
         // icon, labels and checkbox drift vertically. Centering removes the drift.
-        for v in [sbToggle, spinner, summary, words, toggle, divider] as [NSView] {
+        for v in [sbToggle, modes, spinner, summary, words, toggle, divider] as [NSView] {
             v.translatesAutoresizingMaskIntoConstraints = false
         }
         summary.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
@@ -320,7 +342,10 @@ final class WritingEditorWindowController: NSWindowController, NSWindowDelegate,
             sbToggle.widthAnchor.constraint(equalToConstant: 24),
             sbToggle.heightAnchor.constraint(equalToConstant: 22),
 
-            spinner.leadingAnchor.constraint(equalTo: sbToggle.trailingAnchor, constant: 8),
+            modes.leadingAnchor.constraint(equalTo: sbToggle.trailingAnchor, constant: 10),
+            modes.centerYAnchor.constraint(equalTo: header.centerYAnchor),
+
+            spinner.leadingAnchor.constraint(equalTo: modes.trailingAnchor, constant: 12),
             spinner.centerYAnchor.constraint(equalTo: header.centerYAnchor),
             spinner.widthAnchor.constraint(equalToConstant: 15),
             spinner.heightAnchor.constraint(equalToConstant: 15),
@@ -382,7 +407,9 @@ final class WritingEditorWindowController: NSWindowController, NSWindowDelegate,
         let bounds = pane.bounds
         // The header bar; its controls are centered via Auto Layout (see buildEditor).
         headerView.frame = NSRect(x: 0, y: bounds.height - Self.headerHeight, width: bounds.width, height: Self.headerHeight)
-        webView.frame = NSRect(x: 0, y: 0, width: bounds.width, height: bounds.height - Self.headerHeight)
+        let content = NSRect(x: 0, y: 0, width: bounds.width, height: bounds.height - Self.headerHeight)
+        webView.frame = content
+        mathWebView?.frame = content
     }
 
     // MARK: - Theme / font
@@ -401,6 +428,7 @@ final class WritingEditorWindowController: NSWindowController, NSWindowDelegate,
         wordCountLabel.textColor = theme.readableTertiaryText
         sidebarToggleButton.contentTintColor = theme.readableSecondaryText
         webView.evaluateJavaScript("window.editorSetTheme(\(theme.isDark ? "true" : "false"))")
+        if mathReady { mathWebView?.evaluateJavaScript("window.mathSetTheme(\(theme.isDark ? "true" : "false"))") }
     }
 
     private func applyFontToWeb() {
@@ -923,6 +951,7 @@ final class WritingEditorWindowController: NSWindowController, NSWindowDelegate,
 
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
         guard let body = message.body as? [String: Any], let type = body["type"] as? String else { return }
+        if message.name == "math" { handleMathMessage(type: type, body: body); return }
         switch type {
         case "ready":
             editorReady = true
@@ -938,6 +967,74 @@ final class WritingEditorWindowController: NSWindowController, NSWindowDelegate,
             promptForLink()
         case "openLink":
             if let href = body["href"] as? String { openLink(href) }
+        default:
+            break
+        }
+    }
+
+    // MARK: - Math mode
+
+    private var mathStoreURL: URL {
+        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            ?? URL(fileURLWithPath: NSTemporaryDirectory())
+        let dir = base.appendingPathComponent("SimpleWriting", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir.appendingPathComponent("math-playground.json")
+    }
+
+    @objc private func modeSwitched() {
+        setMode(modeSwitch.selectedSegment == 1 ? .math : .note)
+    }
+
+    private func setMode(_ newMode: Mode) {
+        mode = newMode
+        modeSwitch?.selectedSegment = (newMode == .math) ? 1 : 0
+        UserDefaults.standard.set(newMode == .math ? "math" : "note", forKey: Self.modeKey)
+        let isMath = (newMode == .math)
+        for v: NSView? in [checkingSpinner, summaryLabel, grammarToggle, wordCountLabel] { v?.isHidden = isMath }
+        if isMath {
+            ensureMathWebView()
+            webView.isHidden = true
+            mathWebView?.isHidden = false
+        } else {
+            mathWebView?.isHidden = true
+            webView.isHidden = false
+        }
+        layoutEditor()
+    }
+
+    private func ensureMathWebView() {
+        guard mathWebView == nil else { return }
+        let config = WKWebViewConfiguration()
+        config.userContentController.add(self, name: "math")
+        let web = WKWebView(frame: webView.frame, configuration: config)
+        web.navigationDelegate = self
+        web.underPageBackgroundColor = webBackground()
+        editorPane.addSubview(web)
+        mathWebView = web
+        if let url = Bundle.main.url(forResource: "math", withExtension: "html", subdirectory: "math") {
+            web.loadFileURL(url, allowingReadAccessTo: url.deletingLastPathComponent())
+        } else {
+            NSLog("SimpleWriting: math playground bundle missing from Resources/math")
+        }
+    }
+
+    private func handleMathMessage(type: String, body: [String: Any]) {
+        switch type {
+        case "ready":
+            mathReady = true
+            mathWebView?.evaluateJavaScript("window.mathSetTheme(\(theme.isDark ? "true" : "false"))")
+            let json = (try? String(contentsOf: mathStoreURL, encoding: .utf8)) ?? "[]"
+            mathWebView?.evaluateJavaScript("window.mathLoad(\(jsString(json)))")
+        case "change":
+            if let blocks = body["blocks"] {
+                mathSaveWork?.cancel()
+                let url = mathStoreURL
+                let data = try? JSONSerialization.data(withJSONObject: blocks, options: [.prettyPrinted])
+                let work = DispatchWorkItem { if let data { try? data.write(to: url, options: .atomic) } }
+                mathSaveWork = work
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: work)
+            }
         default:
             break
         }
@@ -994,9 +1091,16 @@ final class WritingEditorWindowController: NSWindowController, NSWindowDelegate,
     /// the editor would otherwise go blank/frozen. Reload and re-hydrate.
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
         NSLog("SimpleWriting: web content process terminated; reloading")
-        editorReady = false
-        if let url = Bundle.main.url(forResource: "index", withExtension: "html", subdirectory: "editor") {
-            webView.loadFileURL(url, allowingReadAccessTo: url.deletingLastPathComponent())
+        if webView === mathWebView {
+            mathReady = false
+            if let url = Bundle.main.url(forResource: "math", withExtension: "html", subdirectory: "math") {
+                webView.loadFileURL(url, allowingReadAccessTo: url.deletingLastPathComponent())
+            }
+        } else {
+            editorReady = false
+            if let url = Bundle.main.url(forResource: "index", withExtension: "html", subdirectory: "editor") {
+                webView.loadFileURL(url, allowingReadAccessTo: url.deletingLastPathComponent())
+            }
         }
     }
 
@@ -1041,7 +1145,9 @@ final class WritingEditorWindowController: NSWindowController, NSWindowDelegate,
 
     func tableViewSelectionDidChange(_ notification: Notification) {
         let row = tableView.selectedRow
-        guard row >= 0, row < visible.count, visible[row].id != currentDraft?.id else { return }
+        guard row >= 0, row < visible.count else { return }
+        if mode == .math { setMode(.note) }   // choosing a note returns to note mode
+        guard visible[row].id != currentDraft?.id else { return }
         flushCurrent()
         loadDraft(visible[row])
     }

@@ -33,10 +33,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let settingsItem = appMenu.addItem(withTitle: "Settings…", action: #selector(openSettings), keyEquivalent: ",")
         settingsItem.target = self
         appMenu.addItem(.separator())
-        let mathItem = appMenu.addItem(withTitle: "Math Playground", action: #selector(openMath), keyEquivalent: "m")
-        mathItem.keyEquivalentModifierMask = [.command, .option]
-        mathItem.target = self
-        appMenu.addItem(.separator())
         appMenu.addItem(withTitle: "Hide SimpleWriting", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
         appMenu.addItem(withTitle: "Quit SimpleWriting", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         appItem.submenu = appMenu
@@ -92,9 +88,5 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func openSettings() {
         SettingsWindowController.shared.show()
-    }
-
-    @objc private func openMath() {
-        MathWindowController.shared.show()
     }
 }
