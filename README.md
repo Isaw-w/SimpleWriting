@@ -31,8 +31,9 @@ Type markdown and it becomes real formatting as you go — the document is store
 | ` ``` ` | a code block |
 | `> ` | blockquote |
 | `- ` / `* ` / `1. ` | bullet / ordered lists |
-| Tab / Shift-Tab | indent / outdent (nested lists) |
+| Tab / Shift-Tab | indent / outdent (nested lists), or move between table cells |
 | `---` | horizontal rule |
+| `\| a \| b \|` … | GFM tables (⇧⌘T inserts one) |
 
 Plus ⌘B / ⌘I / ⌘` for bold / italic / code, ⌘K for a link, Shift-Enter for a line break, and ⇧⌘C to toggle a code block.
 

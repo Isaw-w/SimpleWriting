@@ -89,10 +89,15 @@ final class WritingEditorWindowController: NSWindowController, NSWindowDelegate,
 
     // MARK: - Presentation
 
+    private var historyLoaded = false
+
     func show() {
         reloadTheme()
         if window == nil { buildWindow() }
-        loadHistory()
+        // Load the draft list exactly once. A second show() — e.g. when a file
+        // is opened at launch and applicationDidFinishLaunching also calls show()
+        // — must not re-run loadHistory and clobber the just-imported note.
+        if !historyLoaded { loadHistory(); historyLoaded = true }
         NSApp.activate(ignoringOtherApps: true)
         window?.makeKeyAndOrderFront(nil)
     }
