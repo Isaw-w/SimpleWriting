@@ -27,7 +27,9 @@ Type markdown and it becomes real formatting as you go — the document is store
 | `# ` … `###### ` | Headings 1–6 |
 | `**bold**` | **bold** |
 | `_italic_` | *italic* |
+| `~~strike~~` | strikethrough |
 | `` `code` `` | inline `code` |
+| `$x^2$` · `$$…$$` | inline & display math (KaTeX) |
 | ` ``` ` | a code block |
 | `> ` | blockquote |
 | `- ` / `* ` / `1. ` | bullet / ordered lists |
@@ -35,7 +37,7 @@ Type markdown and it becomes real formatting as you go — the document is store
 | `---` | horizontal rule |
 | `\| a \| b \|` … | GFM tables (⇧⌘T inserts one) |
 
-Plus ⌘B / ⌘I / ⌘` for bold / italic / code, ⌘K for a link, Shift-Enter for a line break, and ⇧⌘C to toggle a code block.
+Plus ⌘B / ⌘I / ⌘` for bold / italic / code, ⇧⌘X for strikethrough, ⌘K for a link, Shift-Enter for a line break, ⇧⌘C to toggle a code block, and ⇧⌘T to insert a table. Pasting Markdown text keeps its formatting. Math renders offline with KaTeX.
 
 ## Install
 
