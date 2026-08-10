@@ -24,6 +24,7 @@ final class WritingEditorWindowController: NSWindowController, NSWindowDelegate,
     private var wordCountLabel: NSTextField!
     private var checkingSpinner: NSProgressIndicator!
     private var sidebarToggleButton: NSButton!
+    private var headerDivider: NSView!
 
     private var sidebarPane: NSView!
     private var groupBar: NSView!
@@ -301,6 +302,46 @@ final class WritingEditorWindowController: NSWindowController, NSWindowDelegate,
         header.addSubview(toggle)
         self.grammarToggle = toggle
 
+        // A hairline that cleanly separates the header from the page.
+        let divider = NSView()
+        divider.wantsLayer = true
+        header.addSubview(divider)
+        self.headerDivider = divider
+
+        // Center every control on one line with Auto Layout — fixed frames let the
+        // icon, labels and checkbox drift vertically. Centering removes the drift.
+        for v in [sbToggle, spinner, summary, words, toggle, divider] as [NSView] {
+            v.translatesAutoresizingMaskIntoConstraints = false
+        }
+        summary.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        NSLayoutConstraint.activate([
+            sbToggle.leadingAnchor.constraint(equalTo: header.leadingAnchor, constant: 14),
+            sbToggle.centerYAnchor.constraint(equalTo: header.centerYAnchor),
+            sbToggle.widthAnchor.constraint(equalToConstant: 24),
+            sbToggle.heightAnchor.constraint(equalToConstant: 22),
+
+            spinner.leadingAnchor.constraint(equalTo: sbToggle.trailingAnchor, constant: 8),
+            spinner.centerYAnchor.constraint(equalTo: header.centerYAnchor),
+            spinner.widthAnchor.constraint(equalToConstant: 15),
+            spinner.heightAnchor.constraint(equalToConstant: 15),
+
+            summary.leadingAnchor.constraint(equalTo: spinner.trailingAnchor, constant: 8),
+            summary.centerYAnchor.constraint(equalTo: header.centerYAnchor),
+            summary.trailingAnchor.constraint(lessThanOrEqualTo: toggle.leadingAnchor, constant: -12),
+
+            toggle.trailingAnchor.constraint(equalTo: words.leadingAnchor, constant: -12),
+            toggle.centerYAnchor.constraint(equalTo: header.centerYAnchor),
+
+            words.trailingAnchor.constraint(equalTo: header.trailingAnchor, constant: -14),
+            words.centerYAnchor.constraint(equalTo: header.centerYAnchor),
+            words.widthAnchor.constraint(equalToConstant: 96),
+
+            divider.leadingAnchor.constraint(equalTo: header.leadingAnchor),
+            divider.trailingAnchor.constraint(equalTo: header.trailingAnchor),
+            divider.bottomAnchor.constraint(equalTo: header.bottomAnchor),
+            divider.heightAnchor.constraint(equalToConstant: 1),
+        ])
+
         let config = WKWebViewConfiguration()
         config.userContentController.add(self, name: "editor")
         let web = WKWebView(frame: .zero, configuration: config)
@@ -339,25 +380,8 @@ final class WritingEditorWindowController: NSWindowController, NSWindowDelegate,
     private func layoutEditor() {
         guard let pane = editorPane else { return }
         let bounds = pane.bounds
+        // The header bar; its controls are centered via Auto Layout (see buildEditor).
         headerView.frame = NSRect(x: 0, y: bounds.height - Self.headerHeight, width: bounds.width, height: Self.headerHeight)
-        // One centered band so labels, toggle, spinner and count all line up.
-        let pad: CGFloat = 16
-        let rowH: CGFloat = 22
-        let rowY = ((Self.headerHeight - rowH) / 2).rounded()
-        let wordWidth: CGFloat = 96
-        let toggleWidth: CGFloat = 132
-        let spinnerSize: CGFloat = 15
-
-        // Sidebar toggle sits at the far left; the checking band follows it.
-        let sbW: CGFloat = 26
-        sidebarToggleButton.frame = NSRect(x: pad - 2, y: rowY, width: sbW, height: rowH)
-        let bandX = pad - 2 + sbW + 8
-
-        wordCountLabel.frame = NSRect(x: bounds.width - pad - wordWidth, y: rowY, width: wordWidth, height: rowH)
-        grammarToggle.frame = NSRect(x: wordCountLabel.frame.minX - 12 - toggleWidth, y: rowY, width: toggleWidth, height: rowH)
-        checkingSpinner.frame = NSRect(x: bandX, y: ((Self.headerHeight - spinnerSize) / 2).rounded(), width: spinnerSize, height: spinnerSize)
-        let summaryX = bandX + spinnerSize + 8
-        summaryLabel.frame = NSRect(x: summaryX, y: rowY, width: max(0, grammarToggle.frame.minX - summaryX - 10), height: rowH)
         webView.frame = NSRect(x: 0, y: 0, width: bounds.width, height: bounds.height - Self.headerHeight)
     }
 
@@ -371,6 +395,8 @@ final class WritingEditorWindowController: NSWindowController, NSWindowDelegate,
         window?.appearance = NSAppearance(named: theme.appearanceName)
         window?.backgroundColor = webBackground()
         headerView.layer?.backgroundColor = webBackground().cgColor
+        headerDivider.layer?.backgroundColor = (theme.isDark
+            ? NSColor(calibratedWhite: 1, alpha: 0.08) : NSColor(calibratedWhite: 0, alpha: 0.07)).cgColor
         summaryLabel.textColor = theme.readableSecondaryText
         wordCountLabel.textColor = theme.readableTertiaryText
         sidebarToggleButton.contentTintColor = theme.readableSecondaryText
