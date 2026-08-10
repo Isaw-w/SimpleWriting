@@ -33,6 +33,7 @@ Type markdown and it becomes real formatting as you go — the document is store
 | ` ``` ` | a code block |
 | `> ` | blockquote |
 | `- ` / `* ` / `1. ` | bullet / ordered lists |
+| `- [ ] ` / `- [x] ` | task checkboxes (click to toggle) |
 | Tab / Shift-Tab | indent / outdent (nested lists), or move between table cells |
 | `---` | horizontal rule |
 | `\| a \| b \|` … | GFM tables (⇧⌘T inserts one) |

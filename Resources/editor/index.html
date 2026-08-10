@@ -62,6 +62,36 @@
       font-style: italic; pointer-events: none; position: absolute;
     }
 
+    /* Task checkboxes. Quiet outline until touched; the checked state shows as
+       fill + strikethrough (not motion alone), with a checkmark that grows in
+       on one confident ease. */
+    .ProseMirror li.task-item { list-style: none; display: flex; align-items: flex-start; gap: 0.55em; }
+    .ProseMirror li.task-item > .task-checkbox {
+      flex: 0 0 auto; width: 1.05em; height: 1.05em; margin-top: 0.3em;
+      border: 1.5px solid var(--muted); border-radius: 0.3em; background: transparent;
+      cursor: pointer; position: relative; user-select: none;
+      transition: background-color .18s ease, border-color .18s ease;
+    }
+    .ProseMirror li.task-item > .task-checkbox:hover { border-color: var(--link); }
+    .ProseMirror li.task-item[data-checked="true"] > .task-checkbox {
+      background: var(--link); border-color: var(--link);
+    }
+    .ProseMirror li.task-item > .task-checkbox::after {
+      content: ""; position: absolute; left: 0.35em; top: 0.14em;
+      width: 0.26em; height: 0.52em; border: solid #fff; border-width: 0 2px 2px 0;
+      transform: rotate(45deg) scale(0); transform-origin: 55% 55%;
+      transition: transform .18s cubic-bezier(.2,.85,.3,1.1);
+    }
+    .ProseMirror li.task-item[data-checked="true"] > .task-checkbox::after { transform: rotate(45deg) scale(1); }
+    .ProseMirror li.task-item > .li-content { flex: 1 1 auto; min-width: 0; transition: color .22s ease; }
+    .ProseMirror li.task-item[data-checked="true"] > .li-content { color: var(--muted); }
+    .ProseMirror li.task-item[data-checked="true"] > .li-content p { text-decoration: line-through; }
+    @media (prefers-reduced-motion: reduce) {
+      .ProseMirror li.task-item > .task-checkbox,
+      .ProseMirror li.task-item > .task-checkbox::after,
+      .ProseMirror li.task-item > .li-content { transition: none; }
+    }
+
     /* GFM tables. */
     .ProseMirror table {
       border-collapse: collapse; table-layout: fixed; width: 100%;
