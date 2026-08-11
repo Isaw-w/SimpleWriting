@@ -974,12 +974,12 @@ final class WritingEditorWindowController: NSWindowController, NSWindowDelegate,
 
     // MARK: - Math mode
 
-    private var mathStoreURL: URL {
-        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
-            ?? URL(fileURLWithPath: NSTemporaryDirectory())
-        let dir = base.appendingPathComponent("SimpleWriting", isDirectory: true)
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        return dir.appendingPathComponent("math-playground.json")
+    /// Push the current note's math notebook into the page. Math is per-note, so
+    /// this runs every time Math mode opens — not once for a shared playground.
+    private func loadMathForCurrentDraft() {
+        guard mathReady else { return }
+        let json = currentDraft?.mathJSON ?? "[]"
+        mathWebView?.evaluateJavaScript("window.mathLoad(\(jsString(json)))")
     }
 
     @objc private func modeSwitched() {
@@ -996,6 +996,7 @@ final class WritingEditorWindowController: NSWindowController, NSWindowDelegate,
             ensureMathWebView()
             webView.isHidden = true
             mathWebView?.isHidden = false
+            loadMathForCurrentDraft() // show this note's math (no-op until the page is ready)
         } else {
             mathWebView?.isHidden = true
             webView.isHidden = false
@@ -1024,14 +1025,20 @@ final class WritingEditorWindowController: NSWindowController, NSWindowDelegate,
         case "ready":
             mathReady = true
             mathWebView?.evaluateJavaScript("window.mathSetTheme(\(theme.isDark ? "true" : "false"))")
-            let json = (try? String(contentsOf: mathStoreURL, encoding: .utf8)) ?? "[]"
-            mathWebView?.evaluateJavaScript("window.mathLoad(\(jsString(json)))")
+            loadMathForCurrentDraft()
         case "change":
-            if let blocks = body["blocks"] {
+            if let blocks = body["blocks"],
+               let data = try? JSONSerialization.data(withJSONObject: blocks, options: [.prettyPrinted]),
+               let json = String(data: data, encoding: .utf8),
+               mode == .math, var draft = currentDraft {
+                // Save into the note Math mode is showing. Capture the draft by
+                // value so a note switch before the debounce fires still writes it.
+                draft.mathJSON = json
+                draft.updatedAt = Date()
+                currentDraft = draft
+                if let i = drafts.firstIndex(where: { $0.id == draft.id }) { drafts[i] = draft }
                 mathSaveWork?.cancel()
-                let url = mathStoreURL
-                let data = try? JSONSerialization.data(withJSONObject: blocks, options: [.prettyPrinted])
-                let work = DispatchWorkItem { if let data { try? data.write(to: url, options: .atomic) } }
+                let work = DispatchWorkItem { [weak self] in self?.store.save(draft) }
                 mathSaveWork = work
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: work)
             }
