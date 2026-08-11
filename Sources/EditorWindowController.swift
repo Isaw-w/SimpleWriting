@@ -63,17 +63,32 @@ final class WritingEditorWindowController: NSWindowController, NSWindowDelegate,
     private var drafts: [WritingDraft] = []
     private var currentDraft: WritingDraft?
 
-    /// The document's plain text (ProseMirror `textContent`) that findings and
-    /// decoration offsets are measured against.
-    private var lastText = ""
+    /// The active surface's plain text that findings and decoration offsets are
+    /// measured against. Per-surface (note vs. math) so switching modes keeps
+    /// each side's findings and text in sync with what's on screen.
+    private var noteLastText = ""
+    private var mathLastText = ""
+    private var lastText: String {
+        get { mode == .math ? mathLastText : noteLastText }
+        set { if mode == .math { mathLastText = newValue } else { noteLastText = newValue } }
+    }
+    /// Math-mode text is assembled from the note blocks; this records, for each
+    /// text block, its character range in `mathLastText` so decoration offsets
+    /// can be mapped back to the block that owns them.
+    private var mathTextRanges: [(index: Int, start: Int, end: Int)] = []
 
     // Optional model grammar check (Stage 3-ready), layered over the always-on
     // local Hemingway highlights.
     private let client = GrammarClient()
     private var grammarCheckEnabled = false
-    /// Model errors currently shown. Each completed check replaces this set
-    /// (relocated into the current text); the freshest check is authoritative.
-    private var standing: [GrammarError] = []
+    /// Model errors currently shown, per surface. Each completed check replaces
+    /// this set (relocated into the current text); freshest check is authoritative.
+    private var noteStanding: [GrammarError] = []
+    private var mathStanding: [GrammarError] = []
+    private var standing: [GrammarError] {
+        get { mode == .math ? mathStanding : noteStanding }
+        set { if mode == .math { mathStanding = newValue } else { noteStanding = newValue } }
+    }
     private var checkWork: DispatchWorkItem?
     private var checkTask: URLSessionTask?
     private var checkGeneration = 0
@@ -855,15 +870,26 @@ final class WritingEditorWindowController: NSWindowController, NSWindowDelegate,
             let severity = error.kind == .error ? "Required" : "Optional"
             let title = "\(severity) · \(error.scope.label) · \(error.focus.label) — \(error.type)"
             let hint = error.hint.isEmpty ? "No further hint for this one — you've got it." : error.hint
-            items.append([
+            var item: [String: Any] = [
                 "from": range.location, "to": NSMaxRange(range),
                 "style": style, "accent": cssColor(accent, opaque: true),
                 "title": title, "hint": hint,
-            ])
+            ]
+            // In Math mode the text spans several note blocks: translate the
+            // global range to the owning block and a block-local range.
+            if mode == .math {
+                guard let b = mathTextRanges.first(where: { range.location >= $0.start && range.location < $0.end }) else { continue }
+                item["block"] = b.index
+                item["from"] = range.location - b.start
+                item["to"] = min(NSMaxRange(range), b.end) - b.start
+            }
+            items.append(item)
         }
         guard let data = try? JSONSerialization.data(withJSONObject: items),
               let json = String(data: data, encoding: .utf8) else { return }
-        webView.evaluateJavaScript("window.editorSetDecorations(\(json))")
+        let fn = (mode == .math) ? "window.mathSetDecorations" : "window.editorSetDecorations"
+        let target = (mode == .math) ? mathWebView : webView
+        target?.evaluateJavaScript("\(fn)(\(json))")
     }
 
     /// Pull the editor's plain text back (ProseMirror `textContent`) so findings
@@ -974,10 +1000,18 @@ final class WritingEditorWindowController: NSWindowController, NSWindowDelegate,
 
     // MARK: - Math mode
 
-    /// Push the current note's math notebook into the page. Math is per-note, so
-    /// this runs every time Math mode opens — not once for a shared playground.
+    /// The note whose math the page is currently showing. The math web view keeps
+    /// its DOM (and decorations) while hidden, so we only reload when the note
+    /// actually changes — re-entering Math for the same note leaves it intact.
+    private var mathLoadedDraftID: UUID?
+    private var mathGrammarWork: DispatchWorkItem?
+
+    /// Push the current note's math notebook into the page — only when the note
+    /// changed. Math is per-note, so this also resets the math grammar state.
     private func loadMathForCurrentDraft() {
-        guard mathReady else { return }
+        guard mathReady, currentDraft?.id != mathLoadedDraftID else { return }
+        mathLoadedDraftID = currentDraft?.id
+        mathStanding = []; mathLastText = ""; mathTextRanges = []
         let json = currentDraft?.mathJSON ?? "[]"
         mathWebView?.evaluateJavaScript("window.mathLoad(\(jsString(json)))")
     }
@@ -991,7 +1025,9 @@ final class WritingEditorWindowController: NSWindowController, NSWindowDelegate,
         modeSwitch?.selectedSegment = (newMode == .math) ? 1 : 0
         UserDefaults.standard.set(newMode == .math ? "math" : "note", forKey: Self.modeKey)
         let isMath = (newMode == .math)
-        for v: NSView? in [checkingSpinner, summaryLabel, grammarToggle, wordCountLabel] { v?.isHidden = isMath }
+        // Grammar check works in both modes now; only the word count is note-only.
+        wordCountLabel?.isHidden = isMath
+        for v: NSView? in [checkingSpinner, summaryLabel, grammarToggle] { v?.isHidden = false }
         if isMath {
             ensureMathWebView()
             webView.isHidden = true
@@ -1001,7 +1037,27 @@ final class WritingEditorWindowController: NSWindowController, NSWindowDelegate,
             mathWebView?.isHidden = true
             webView.isHidden = false
         }
+        // Refresh the header to the surface we just switched to (its own findings).
+        updateHeader(findings: standing, text: lastText)
         layoutEditor()
+    }
+
+    /// Assemble the grammar text from a math notebook's note blocks, recording each
+    /// block's character range so decorations can be mapped back. Note blocks are
+    /// joined by a blank line; math and graph blocks are skipped.
+    private func mathGrammarText(from blocks: [[String: Any]]) -> (text: String, ranges: [(index: Int, start: Int, end: Int)]) {
+        var combined = ""
+        var ranges: [(Int, Int, Int)] = []
+        var textIndex = 0
+        for b in blocks where (b["type"] as? String) == "text" {
+            let value = (b["value"] as? String) ?? ""
+            let start = (combined as NSString).length
+            combined += value
+            ranges.append((textIndex, start, (combined as NSString).length))
+            combined += "\n\n" // keep blocks distinct; whitespace, so never flagged
+            textIndex += 1
+        }
+        return (combined, ranges)
     }
 
     private func ensureMathWebView() {
@@ -1041,6 +1097,23 @@ final class WritingEditorWindowController: NSWindowController, NSWindowDelegate,
                 let work = DispatchWorkItem { [weak self] in self?.store.save(draft) }
                 mathSaveWork = work
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: work)
+
+                // Grammar-check the note blocks, same pipeline as Note mode.
+                if let arr = body["blocks"] as? [[String: Any]] {
+                    let built = mathGrammarText(from: arr)
+                    let changed = (built.text != lastText)
+                    lastText = built.text
+                    mathTextRanges = built.ranges
+                    mathGrammarWork?.cancel()
+                    let gw = DispatchWorkItem { [weak self] in
+                        guard let self, self.mode == .math else { return }
+                        self.recomputeAndSend()
+                        if changed && self.grammarCheckEnabled { self.scheduleGrammarCheck() }
+                    }
+                    mathGrammarWork = gw
+                    // Debounce so the contenteditable isn't rewritten on every keystroke.
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35, execute: gw)
+                }
             }
         default:
             break

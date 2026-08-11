@@ -60,6 +60,20 @@
     .plot.plot2d text { fill: var(--muted); }
     /* MathBox ships a generic loading spinner; hide it — a graph should just appear. */
     .plot [class*="splash"] { display: none !important; }
+
+    /* Grammar highlights + the click-to-read-the-rule tooltip (parity with notes). */
+    .hl { border-radius: 4px; padding: 0.04em 0.05em; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+    .hl-tip {
+      position: absolute; z-index: 50; max-width: 320px;
+      background: var(--bg); color: var(--fg);
+      border: 1px solid var(--faint); border-radius: 12px;
+      box-shadow: 0 10px 34px rgba(0,0,0,0.18);
+      padding: 11px 14px; font-family: -apple-system, system-ui, sans-serif;
+      animation: rise 0.18s ease both;
+    }
+    .hl-tip-title { font-size: 12.5px; font-weight: 700; margin-bottom: 4px; letter-spacing: 0.01em; }
+    .hl-tip-hint { font-size: 14px; line-height: 1.45; }
+    @keyframes rise { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
   </style>
 </head>
 <body>
