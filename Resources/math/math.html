@@ -61,6 +61,9 @@
     /* MathBox ships a generic loading spinner; hide it — a graph should just appear. */
     .plot [class*="splash"] { display: none !important; }
 
+    /* Inline math: $…$ rendered in the flow of a note. */
+    .imath { display: inline-block; vertical-align: baseline; margin: 0 0.05em; -webkit-user-select: none; user-select: none; }
+
     /* Grammar highlights + the click-to-read-the-rule tooltip (parity with notes). */
     .hl { border-radius: 4px; padding: 0.04em 0.05em; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
     .hl-tip {

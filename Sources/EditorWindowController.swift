@@ -1051,13 +1051,29 @@ final class WritingEditorWindowController: NSWindowController, NSWindowDelegate,
         var textIndex = 0
         for b in blocks where (b["type"] as? String) == "text" {
             let value = (b["value"] as? String) ?? ""
+            // Blank out inline math ($…$) so the checker never flags a formula.
+            // Same length, so decoration offsets still map onto the raw source.
+            let masked = Self.maskInlineMath(value)
             let start = (combined as NSString).length
-            combined += value
+            combined += masked
             ranges.append((textIndex, start, (combined as NSString).length))
             combined += "\n\n" // keep blocks distinct; whitespace, so never flagged
             textIndex += 1
         }
         return (combined, ranges)
+    }
+
+    private static let inlineMathRegex = try? NSRegularExpression(pattern: "\\$[^$\\n]+\\$")
+    /// Replace each `$…$` run with spaces of equal length.
+    private static func maskInlineMath(_ s: String) -> String {
+        guard let re = inlineMathRegex else { return s }
+        let ns = s as NSString
+        let result = NSMutableString(string: s)
+        // Replace back-to-front so earlier ranges stay valid.
+        for m in re.matches(in: s, range: NSRange(location: 0, length: ns.length)).reversed() {
+            result.replaceCharacters(in: m.range, with: String(repeating: " ", count: m.range.length))
+        }
+        return result as String
     }
 
     private func ensureMathWebView() {
